@@ -46,6 +46,11 @@ lilToon 本体の「反射（リアルモード）」と同等の GGX / Blinn-Ph
   - 法線影響度 (`_CustomRefl2ndNormalStrength`): 0で幾何法線 `origN`、1で法線マップ後 `fd.N`
   - 影減衰度 (`_CustomRefl2ndShadowAttenuation`)
   - メインカラー乗算度 (`_CustomRefl2ndMainColorStrength`)
+  - 光源方向の補正 (`_CustomRefl2ndFakeLightBlend` / `_CustomRefl2ndFakeLightDir`): ForwardBase の光源方向をカメラ基準の方向 (x=右, y=上, z=視点側) へ寄せる。方向のみ変え、明るさはライティングに従う
+  - ライティング反映 (`_CustomRefl2ndEnableLighting`, 既定 1): ライト色の乗算度。ForwardAdd では `lightColor × 値`
+  - 明るさ上限 (`_CustomRefl2ndLightLimit`, 既定 10 = 無制限): ライト輝度に対する倍率で輝度を制限 (色相は保持)。暗いワールドでハイライトが浮くのを防ぐ
+  - クリアコート (`_CustomRefl2ndClearCoat`): F0 = 0.04 固定 + 下地を視線フレネルで減衰 (後段の lilToon 反射等は減衰対象外)
+  - フレネル強度 / 鋭さ (`_CustomRefl2ndFresnelStrength` / `_CustomRefl2ndFresnelPower`)
   - 適用マスク (`_CustomRefl2ndMaskTex`): ※エディタで自動パック（Pack 1 Rチャンネル）
 
 ---
@@ -62,6 +67,11 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - 法線影響度 (`_CustomRefl3rdNormalStrength`)
   - 影減衰度 (`_CustomRefl3rdShadowAttenuation`)
   - メインカラー乗算度 (`_CustomRefl3rdMainColorStrength`)
+  - 光源方向の補正 (`_CustomRefl3rdFakeLightBlend` / `_CustomRefl3rdFakeLightDir`): ForwardBase の光源方向をカメラ基準の方向 (x=右, y=上, z=視点側) へ寄せる。方向のみ変え、明るさはライティングに従う
+  - ライティング反映 (`_CustomRefl3rdEnableLighting`, 既定 1): ライト色の乗算度。ForwardAdd では `lightColor × 値`
+  - 明るさ上限 (`_CustomRefl3rdLightLimit`, 既定 10 = 無制限): ライト輝度に対する倍率で輝度を制限 (色相は保持)。暗いワールドでハイライトが浮くのを防ぐ
+  - クリアコート (`_CustomRefl3rdClearCoat`): F0 = 0.04 固定 + 下地を視線フレネルで減衰 (後段の lilToon 反射等は減衰対象外)
+  - フレネル強度 / 鋭さ (`_CustomRefl3rdFresnelStrength` / `_CustomRefl3rdFresnelPower`)
   - 適用マスク (`_CustomRefl3rdMaskTex`): ※エディタで自動パック（Pack 2 Rチャンネル）
 
 ---
@@ -75,14 +85,19 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - 通常の視線追従 MatCap（$N_{\mathrm{vs}}$ サンプリング）ではなく、**反射ベクトル $R$ のワールド空間座標** を基準にサンプリング UV を生成。
   - **球体空間の2半球合成（Dual-Hemisphere / Dual-Paraboloid）**:
     - 全天球を「前半球（Front Hemisphere / $+Z$ 側）」と「後半球（Back Hemisphere / $-Z$ 側）」の2つに分割。
-    - 前半球テクスチャと後半球テクスチャの2スロット（または左右/上下分割の1枚テクスチャ）を用意。
+    - **テクスチャは1枚** (`_CustomMatcapFrontTex`)。レイアウト `_CustomMatcapLayout` で「1枚 (後半球は鏡像)」または「左右分割 (左=前半球 / 右=後半球)」を選ぶ。左右分割では mip レベルに応じて各半分の内側へクランプし、中央の境界から滲まないようにする。
     - 反射ベクトル $R_z$ の向きに応じてサンプリングを切り替え、境界付近（$R_z \approx 0$）は破綻しないよう `smoothstep` でシームレスにクロスフェード合成。
     - アバターが回転したり視点を動かした際、ワールド空間に固定された背景が滑らかに映り込む（軽量な疑似 Cubemap として動作）。
-- **ワールド回転オフセット**:
-  - ワールド Y 軸周りの回転角度（Yaw Rotation）スライダーを設け、ワールド空間での反射向きを調整可能にする。
+- **空間モード** (`_CustomMatcapWorldFixed`, 互換のため名前は維持):
+  - 0 = ビュー (通常の MatCap。レイアウトが左右分割なら左半分のみ使用)
+  - 1 = ワールド固定 (上記のデュアル半球)
+  - 2 = オブジェクト固定 (反射ベクトルをオブジェクト空間へ変換。アバターの回転には追従し、カメラの移動には追従しない)
+- **回転オフセット**:
+  - Y 軸周りの回転角度（Yaw Rotation）スライダーで反射向きを調整する (ワールド固定ではワールド Y、オブジェクト固定ではローカル Y)。
 - **パラメーター一覧**:
   - 有効化トグル (`_CustomMatcapEnabled` / `_CustomMatcapUIEnabled`)
-  - 半球テクスチャ Front / Back (`_CustomMatcapFrontTex`, `_CustomMatcapBackTex`)
+  - テクスチャ (`_CustomMatcapFrontTex`) とレイアウト (`_CustomMatcapLayout`: 0=1枚, 1=左右分割)
+  - ※ 旧 `_CustomMatcapBackTex` は廃止。旧マテリアルはインスペクターの「前後を1枚に結合」で左右分割テクスチャに変換する (`SpecularExMatcapAtlasBaker`)
   - 合成カラー (`_CustomMatcapColor`, HDR)
   - 強度・不透明度 (`_CustomMatcapAlpha`)
   - ブレンドモード (`_CustomMatcapBlendMode`): 通常(0), 加算(1), スクリーン(2), 乗算(3)
@@ -91,6 +106,9 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - ライティング反映 (`_CustomMatcapEnableLighting`)
   - 影マスク反映 (`_CustomMatcapShadowStrength`)
   - ポリゴン裏面無効化 (`_CustomMatcapDisableBackface`)
+  - フレネル強度 / 鋭さ (`_CustomMatcapFresnelStrength` / `_CustomMatcapFresnelPower`): 斜めから見たときほど不透明度を上げる
+  - HSVG 調整 (`_CustomMatcapHSVG`: 色相, 彩度, 明度, ガンマ。`lilToneCorrection`、既定値では処理を省略)
+  - メインカラー乗算度 (`_CustomMatcapMainColorStrength`)
   - 適用マスク (`_CustomMatcapMaskTex`): ※エディタで自動パック（Aチャンネル）
 
 ---
@@ -115,6 +133,8 @@ lilToon 本体の Normal 1st（`_BumpMap`）および Normal 2nd（`_Bump2ndMap`
   - ノーマルマップテクスチャ (`_CustomNormal3rdTex`, Tiling/Offset 対応)
   - ノーマル強度 (`_CustomNormal3rdStrength`, -2.0 〜 2.0)
   - UV 選択モード (`_CustomNormal3rdTex_UVMode`: UV0, UV1, UV2, UV3)
+  - UV スクロール / 回転 (`_CustomNormal3rdTex_ScrollRotate`: lilToon の ScrollRotate 形式、`lilCalcUV`。マスクは動かない)
+  - 距離フェード (`_CustomNormal3rdDistanceFade`: x=開始[m], y=終了[m], z=強度。頭からの距離 `fd.depth` で強度を下げる)
   - 適用マスク (`_CustomNormal3rdMaskTex`): ※エディタで自動パック（Bチャンネル）
 
 ---
@@ -136,11 +156,14 @@ lilToon 本体のリムライトに加えて独立して発光/陰影効果を�
   - リムカラー (`_CustomRim2ndColor`, HDR)
   - 強度 (`_CustomRim2ndStrength`)
   - 絞り・指数 (`_CustomRim2ndPower`, 0.1 〜 32.0)
-  - ぼかし・境界 (`_CustomRim2ndBlur`)
+  - 境界 (`_CustomRim2ndBorder`, 既定 0.5) / ぼかし (`_CustomRim2ndBlur`)
   - ブレンドモード (`_CustomRim2ndBlendMode`: 0=Replace, 1=Add, 2=Screen, 3=Multiply)
   - 法線影響度 (`_CustomRim2ndNormalStrength`)
   - 影減衰度 (`_CustomRim2ndShadowAttenuation`)
   - メインカラー乗算度 (`_CustomRim2ndMainColorStrength`)
+  - ライティング反映 (`_CustomRim2ndEnableLighting`, 既定 1): リム色にライト色を乗算 (乗算モードは対象外)。暗所で発光して浮かないようにする
+  - 上下方向の制限 (`_CustomRim2ndVerticalBias`, -1〜1): ワールド上方向を基準に、+ で上向きの面、- で下向きの面だけにリムを出す
+  - 逆光ブースト (`_CustomRim2ndBacklight`, 0〜4): 光源が視点の反対側にあるほどリムを強める (`saturate(-fd.vl)^2`)
   - 適用マスク (`_CustomRim2ndMaskTex`): ※エディタで自動パック（Gチャンネル）
 
 ---
@@ -154,6 +177,8 @@ lilToon 本体のリムライトに加えて独立して発光/陰影効果を�
   - HLSL 内で `TEXTURE2D(...)` を個別に宣言すると、プロパティ数ではなく宣言テクスチャ数としてハードウェア上限を消費する。
   - 単一チャンネル（主に白黒マスク）として参照する4つのテクスチャを **1枚の RGBA テクスチャ（`_CustomMaskPacked`）** に統合する。
   - 各マスクは個別の Tiling/Offset（`_ST`）を持ち、シェーダー内では `_CustomMaskPacked` をそれぞれの UV でチャンネルサンプリングするため、機能制限（解像度やタイリングの自由度）は一切発生しない。
+  - MatCap の前後半球も1枚のテクスチャ（左右分割）にまとめる。
+  - 結果として、シェーダーが宣言するテクスチャは **4枚**: `_CustomMaskPacked`, `_CustomMaskPacked2`, `_CustomNormal3rdTex`, `_CustomMatcapFrontTex`（旧構成は `_CustomMatcapBackTex` を含む5枚）。
 
 ### 3.2 パックドマスクのチャンネル割り当て
 **Pack 1 (`_CustomMaskPacked`)**
@@ -199,6 +224,7 @@ Shaders/
 ├── lilCustomShaderProperties.lilblock # マテリアルプロパティ定義
 ├── lilCustomShaderInsert.lilblock  # custom_insert.hlsl のインクルード
 ├── SpecularEx_MaskPacker.shader    # マスクパッキング用 Blit シェーダー
+├── SpecularEx_MatcapAtlas.shader   # 旧 Front/Back MatCap を左右分割1枚に結合する Blit シェーダー
 └── lts*.lilcontainer               # 各描画モード（Opaque, Cutout, Trans 等）
 ```
 
@@ -253,10 +279,10 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 ### 5.2 インスペクターセクション構成
 `SpecularExV2Inspector`（`lilToonInspector` 派生）を実装し、以下の構成で lilToon の UI に自然に統合します。
 
-1. **追加スペキュラー (Specular 2nd)**: 有効化、色、強度、スムースネス、メタリック、法線強度、影減衰、メインカラー反映、ForwardAdd適用
-2. **追加 MatCap (World MatCap)**: 有効化、Front/Back テクスチャ、色、強度、ブレンドモード、ぼかし、ワールド回転、法線強度、ライティング/影反映
-3. **追加ノーマル (Normal Map 3rd)**: 有効化、ノーマルマップ、スケール、UV選択、マスク
-4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、Power、境界、ブレンドモード、法線強度、影減衰、メインカラー反映
+1. **追加スペキュラー (Specular 2nd / 3rd)**: 有効化、色、強度 ／ タイプ、スムースネス、クリアコート (ON 時はメタリック・反射率を隠す)、フレネル ／ ライティング反映、明るさ上限、光源方向の補正 ／ 法線強度、影減衰、メインカラー反映、ForwardAdd適用 ／ マスク
+2. **追加 MatCap**: 有効化、空間モード、テクスチャ、レイアウト (旧 Back テクスチャが残っていれば結合ボタン) ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転、法線強度、フレネル ／ ライティング/影反映、裏面 ／ マスク
+3. **追加ノーマル (Normal Map 3rd)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
+4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、ブレンドモード、ライティング反映 ／ Power、境界、ぼかし ／ 上下制限、逆光ブースト ／ 法線強度、影減衰、メインカラー反映 ／ マスク
 5. **マスクパッキング状態 (Mask Packing Status)**: 自動パックの稼働状態、現在のフィンガープリント、手動強制再ベイクボタン
 
 ---

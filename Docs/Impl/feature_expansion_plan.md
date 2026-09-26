@@ -304,20 +304,35 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 - [x] **Phase C: MatCap 1枚テクスチャ化と移行**
   - シェーダー側の Back 削除と Layout 実装
   - `SpecularExMatcapAtlasBaker` と移行 UI、ビルドフックでの警告
-- [ ] **Phase D: 検証**
-  - lilToon 全機能有効ビルドでのテクスチャパラメータ数（4 宣言に減っていること）と、Cutout / Transparent での描画
-  - ライティング環境: ディレクショナルライトあり ／ なし（SH のみ）／ 真っ暗（`_LightMinLimit` のみ）／ ポイントライト（ForwardAdd）／ VRCLV
-  - フェイクライト: VR の左右の目でハイライト位置が一致すること、ForwardAdd で補正されないこと
-  - LightLimit: 暗所で HDR・強度 10 のハイライトが抑えられること、明所では変化しないこと
-  - クリアコート: グレージング角で下地が減衰すること、ForwardAdd 加算との整合
-  - MatCap Layout = 1: 左右の境界で滲みがないこと（ぼかし 0 / 5 / 10 で確認）、前後の継ぎ目のクロスフェード、Object モードで回転・スケール（非一様を含む）したとき
-  - 旧マテリアル: Back テクスチャ付きマテリアルの結合ボタン、アニメーションクリップ内の `_CustomMatcapWorldFixed` の互換
-  - ノーマル 3rd: 距離フェードの境界、スクロール時にマスクが固定されていること
-  - リム: Border / Blur の組み合わせで既存の見た目（Border 0.5）が一致すること、逆光ブーストで飽和しないこと
+- [ ] **Phase D: 検証**（自動検証は完了。Unity 上の目視確認が残っている）
+
+  **自動検証（完了）**
+  - [x] シェーダーのコンパイル: fxc (ps_5_0 / vs_5_0) で lilToon の生成シェーダーと同じインクルード順・全 `LIL_FEATURE_*` 有効の状態を再現し、以下 32 通りがエラー・警告なしでコンパイルできることを確認
+    - Forward / ForwardAdd / Meta / ShadowCaster、Opaque / Cutout / Transparent、Outline、Lite、Multi（キーワードなし）、Gem、Fur、Refraction
+    - この過程で、Multi のノーマルマップ系キーワードなしバリアントの既存コンパイルエラーを見つけて修正（`LIL_REQUIRE_APP_TANGENT`）
+  - [x] テクスチャ宣言数: 全機能 Forward / ForwardAdd の PS がバインドするカスタムテクスチャが 5 → 4 であることを、fxc のリフレクション出力で確認（`_CustomMatcapBackTex` の削除）
+  - [x] C# のコンパイル: `SpecularExV2.Editor` と `SpecularExV2.VRCSDK.Editor` を Unity 同梱の Roslyn と Unity 生成 csproj の参照でコンパイルし、エラーがないことを確認
+  - [x] ローカライズ: インスペクターが参照するキーが ja-JP / en-US の両方に存在することを確認
+  - [x] 既定値での互換性（コードレビュー）: 新しいプロパティはすべて、既定値で従来と同じ計算になる（例外は意図した変更であるリム 2nd のライティング反映のみ）
+    - スペキュラー: `FakeLightBlend=0` で `fd.L`、`EnableLighting=1` で `fd.lightColor`、`FresnelStrength=0` で ×1、`LightLimit=10` で上限処理をスキップ、`ClearCoat=0`
+    - MatCap: HSVG は既定値で処理を省略、`MainColorStrength=0`・`FresnelStrength=0` で ×1、`Layout=0` は旧「Back 未設定」時と同一
+    - ノーマル 3rd: `ScrollRotate=0` で `lilCalcUV` は従来の `uv*ST.xy+ST.zw` と同一、`DistanceFade.z=0` で ×1
+    - リム 2nd: `Border=0.5` で従来の定数と同一、`VerticalBias=0`・`Backlight=0` で ×1
+
+  **Unity 上での目視確認（未実施：実行中の Unity でのアセット再インポートと描画が必要）**
+  - [ ] ライティング環境: ディレクショナルライトあり ／ なし（SH のみ）／ 真っ暗（`_LightMinLimit` のみ）／ ポイントライト（ForwardAdd）／ VRCLV
+  - [ ] フェイクライト: VR の左右の目でハイライト位置が一致すること、ForwardAdd で補正されないこと
+  - [ ] LightLimit: 暗所で HDR・強度 10 のハイライトが抑えられること、明所では変化しないこと
+  - [ ] クリアコート: グレージング角で下地が減衰すること、ForwardAdd 加算との整合
+  - [ ] MatCap Layout = 1: 左右の境界で滲みがないこと（ぼかし 0 / 5 / 10 で確認）、前後の継ぎ目のクロスフェード、Object モードで回転・スケール（非一様を含む）したとき
+  - [ ] 旧マテリアル: Back テクスチャ付きマテリアルで結合ボタンが出ること・結合後の見た目が結合前と一致すること、アニメーションクリップ内の `_CustomMatcapWorldFixed` の互換
+  - [ ] ノーマル 3rd: 距離フェードの境界、スクロール時にマスクが固定されていること
+  - [ ] リム: 暗所でリムが浮かないこと（ライティング反映）、逆光ブーストで飽和しないこと
+  - [ ] VRChat の Build & Publish（Cutout / Transparent で消えないこと、未移行マテリアルの警告ログ）
 
 ## 7. 負荷見積り
 
 | 項目 | テクスチャ宣言 | サンプル数（最大） | ALU |
 |---|---|---|---|
-| 現状 | 5（＋パックマスク2） | MatCap 2 | — |
-| 拡張後 | **4**（＋パックマスク2） | MatCap 2（同一テクスチャ） | 各機能 +10〜30 命令程度。機能 OFF 時は既存の Enabled 分岐でスキップ |
+| 現状 | 5（パックマスク2枚を含む） | MatCap 2 | — |
+| 拡張後 | **4**（パックマスク2枚を含む） | MatCap 2（同一テクスチャ） | 各機能 +10〜30 命令程度。機能 OFF 時は既存の Enabled 分岐でスキップ |
