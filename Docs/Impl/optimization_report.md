@@ -193,3 +193,25 @@ Frame Debuggerでパス数を確認し、UnityのGPU計測や対応するGPUキ�
 - [Inspectorの有効フラグ同期](../../Editor/SpecularExV2Inspector.cs)
 - [アバタービルド時の整合チェック](../../Editor/VRCSDK/SpecularExPackedMaskBuildHook.cs)
 - lilToon: `lil_pass_forward_normal.hlsl`（フック・接線補間）、`lil_pass_forward_lite.hlsl` / `lil_pass_forward_gem.hlsl` / `lil_pass_meta.hlsl`（フック差）、`lil_common_functions.hlsl`（Whiteout・UV）、`lil_common_macro.hlsl`（TBN構築）。
+
+## 8. 実装状況（2026-09-26 追記）
+
+調査後に各候補を実装した。コミットは候補ごとに分けている。
+
+| 候補 | 状況 | コミット | 内容 |
+|---|---|---|---|
+| 4.6 元マスクのビルド依存 | 実装（NDMF 導入時のみ） | `313a86a` | 調査の結果、lilToon 2.3.4 のビルドフックは元スロットの参照を外さず、元マスクとパックが二重収録されると判明。NDMF 導入時は Optimizing フェーズでマテリアルを複製・パックし、複製側だけ元スロット 8 枚の参照を外す（Tiling/Offset は保持）。未使用のパックマスク、無効な機能のノーマル 3rd/4th・マットキャップテクスチャも外す。有効フラグ・ノイズ強度がアニメーションされる機能は有効になり得るとして残す。NDMF 未導入時は従来どおり |
+| 4.1 強度0の省略 | 実装 | `ed10009` | Specular は強度、MatCap / Rim は強度と色alphaが 0 のときに層ごと省略。いずれも結果が変わらない条件のみ。Normal は強度 0 の層の合成のみ省略し、派生値の更新は維持 |
+| 4.2 初期値・端点の経路 | 実装 | `00737f6` | FresnelWeight、FakeLight blend 0、MatCap WorldFixed 0/1、yaw 0、法線 UV のスクロール/回転なし、距離フェード 0 |
+| 4.3 マスク・ノイズ共有 | 実装（同一フック内） | `0a10a77` | BEFORE_REFLECTION / BEFORE_EMISSION_1ST 内で、パック2 の読み取りを `_ST` 一致時に共有。初期値ではスペキュラー2層＋ノイズで 3 回→1 回（リムも同様）。フックをまたぐ共有は Lite/Gem でのフック差があるため見送り |
+| 4.5 パック解像度・縦横 | 実装（縦横の個別決定） | `a6893e4` | 幅・高さを入力の最大値から個別に決定。`Version` を 2 に更新。パックごとの最大解像度設定は未実装 |
+| 4.7 ForwardAdd | 実装 | `dce4de1` | MatCap に `_CustomMatcapApplyFA`（既定 1 = 従来どおり）を追加 |
+| 4.9 Editor のハッシュ共有 | 実装（ハッシュ共有のみ） | `265f93d` | `EnsureAll` 1 回の中で依存ハッシュを入力パスごとに共有。逆引きキャッシュは計測で必要になるまで見送り |
+| 4.4 TBN の静的分離 | 見送り | — | 静的分離にはマテリアルキーワードが必要だが、lilToon の Inspector は変更のたびに全キーワードを消し（`lilInspector.cs:114` `RemoveShaderKeywords`）、Multi はビルド時に `SetupMultiMaterial` でキーワードを組み直す。キーワードが失われると追加法線が黙って消えるため、安全に運用できない。コンテナを複製する方式はファイル数と保守コストが大きい |
+| 4.8 法線2層の変換統合 | 見送り | — | 4.8 の記載どおり現行と同値にならず、見た目が変わる。任意モード化は効果が未測定のため保留 |
+
+### 8.1 実施した確認
+
+- C#: Unity が最後に使ったコンパイル設定（`Library/Bee/*.rsp`）で `SpecularExV2.Editor`、VRCSDK フック、NDMF プラグイン（`SPECULAREXV2_HAS_NDMF` 有効）を Roslyn でコンパイルし、エラーなし。
+- シェーダー: lilToon のパス構成（設定 define → `custom.hlsl` → pipeline → common → `custom_insert.hlsl` → pass）を再現して fxc（`-Gec`、vs_4_0 / ps_4_0）でコンパイル。Forward / ForwardAdd / Outline / Lite（Base・Add）/ Multi / Meta / ShadowCaster でエラーなし。追加した一様条件の内側に拡張テクスチャのサンプルが残る（分岐が平坦化されていない）ことを逆アセンブルで確認。
+- 未実施: Unity 上での描画比較、GPU 時間の計測、実アップロードでの容量測定、NDMF ビルドの実行。6 章の手順で確認すること。
