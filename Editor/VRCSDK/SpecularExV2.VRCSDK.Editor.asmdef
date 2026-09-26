@@ -1,0 +1,26 @@
+{
+    "name": "SpecularExV2.VRCSDK.Editor",
+    "rootNamespace": "",
+    "references": [
+        "SpecularExV2.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "SPECULAREXV2_HAS_VRCSDK_AVATARS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.vrchat.avatars",
+            "expression": "",
+            "define": "SPECULAREXV2_HAS_VRCSDK_AVATARS"
+        }
+    ],
+    "noEngineReferences": false
+}

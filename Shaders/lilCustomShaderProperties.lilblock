@@ -1,0 +1,87 @@
+        //----------------------------------------------------------------------------------------------------------------------
+        // Packed mask (1: R:Specular 2nd  G:Rim Light 2nd  B:Normal Map 3rd  A:World MatCap / 2: R:Specular 3rd).
+        // Baked in the editor from the individual *_MaskTex slots below (SpecularExPackedMaskStore) and
+        // the ONLY mask texture the shader declares, which keeps the texture-parameter count far below
+        // the GPU limit of 64 even in lilToon's all-features-on build.
+        [NoScaleOffset][HideInInspector] _CustomMaskPacked ("Packed Mask", 2D) = "white" {}
+        [NoScaleOffset][HideInInspector] _CustomMaskPacked2 ("Packed Mask 2", 2D) = "white" {}
+
+        // The *_MaskTex slots are authoring-only (never declared in HLSL). Their _ST IS used: each channel
+        // of _CustomMaskPacked is sampled with its own slot's tiling/offset.
+
+        //----------------------------------------------------------------------------------------------------------------------
+        // Specular 2nd
+        [HideInInspector] _CustomRefl2ndUIEnabled ("Enable Specular 2nd", Float) = 0
+        _CustomRefl2ndEnabled ("Enable Specular 2nd", Float) = 0
+        [HDR] _CustomRefl2ndColor ("Specular 2nd Color", Color) = (1, 1, 1, 1)
+        _CustomRefl2ndStrength ("Specular 2nd Strength", Range(0, 10)) = 1
+        _CustomRefl2ndMode ("Specular 2nd Mode", Float) = 0
+        _CustomRefl2ndSmoothness ("Specular 2nd Smoothness", Range(0, 1)) = 0.8
+        _CustomRefl2ndMetallic ("Specular 2nd Metallic", Range(0, 1)) = 0
+        _CustomRefl2ndReflectance ("Specular 2nd Reflectance", Range(0, 1)) = 0.04
+        _CustomRefl2ndNormalStrength ("Specular 2nd Normal Strength", Range(0, 1)) = 1
+        _CustomRefl2ndShadowAttenuation ("Specular 2nd Shadow Attenuation", Range(0, 1)) = 1
+        _CustomRefl2ndMainColorStrength ("Specular 2nd Main Color Strength", Range(0, 1)) = 0
+        _CustomRefl2ndApplyFA ("Specular 2nd Apply ForwardAdd", Float) = 1
+        _CustomRefl2ndMaskTex ("Specular 2nd Mask", 2D) = "white" {}
+
+        //----------------------------------------------------------------------------------------------------------------------
+        // Specular 3rd
+        [HideInInspector] _CustomRefl3rdUIEnabled ("Enable Specular 3rd", Float) = 0
+        _CustomRefl3rdEnabled ("Enable Specular 3rd", Float) = 0
+        [HDR] _CustomRefl3rdColor ("Specular 3rd Color", Color) = (1, 1, 1, 1)
+        _CustomRefl3rdStrength ("Specular 3rd Strength", Range(0, 10)) = 1
+        _CustomRefl3rdMode ("Specular 3rd Mode", Float) = 0
+        _CustomRefl3rdSmoothness ("Specular 3rd Smoothness", Range(0, 1)) = 0.8
+        _CustomRefl3rdMetallic ("Specular 3rd Metallic", Range(0, 1)) = 0
+        _CustomRefl3rdReflectance ("Specular 3rd Reflectance", Range(0, 1)) = 0.04
+        _CustomRefl3rdNormalStrength ("Specular 3rd Normal Strength", Range(0, 1)) = 1
+        _CustomRefl3rdShadowAttenuation ("Specular 3rd Shadow Attenuation", Range(0, 1)) = 1
+        _CustomRefl3rdMainColorStrength ("Specular 3rd Main Color Strength", Range(0, 1)) = 0
+        _CustomRefl3rdApplyFA ("Specular 3rd Apply ForwardAdd", Float) = 1
+        _CustomRefl3rdMaskTex ("Specular 3rd Mask", 2D) = "white" {}
+
+        //----------------------------------------------------------------------------------------------------------------------
+        // World-Oriented Dual-Hemisphere MatCap
+        [HideInInspector] _CustomMatcapUIEnabled ("Enable World MatCap", Float) = 0
+        _CustomMatcapEnabled ("Enable World MatCap", Float) = 0
+        [NoScaleOffset] _CustomMatcapFrontTex ("World MatCap Front (+Z)", 2D) = "black" {}
+        [NoScaleOffset] _CustomMatcapBackTex ("World MatCap Back (-Z)", 2D) = "black" {}
+        // Effective flag: 1 only when a Back texture is assigned (set by the inspector). With 0 the Front
+        // texture is mirrored onto the back hemisphere, so a single matcap already works.
+        [HideInInspector] _CustomMatcapBackEnabled ("World MatCap Use Back Texture", Float) = 0
+        [HDR] _CustomMatcapColor ("World MatCap Color", Color) = (1, 1, 1, 1)
+        _CustomMatcapAlpha ("World MatCap Strength", Range(0, 1)) = 1
+        _CustomMatcapBlendMode ("World MatCap Blend Mode", Float) = 1
+        _CustomMatcapBlur ("World MatCap Blur", Range(0, 10)) = 0
+        // 0 = ordinary view-space matcap (Front texture only), 1 = world-fixed dual-hemisphere matcap.
+        _CustomMatcapWorldFixed ("World MatCap World Fixed", Float) = 0
+        _CustomMatcapWorldRotation ("World MatCap Yaw Rotation", Range(-180, 180)) = 0
+        _CustomMatcapNormalStrength ("World MatCap Normal Strength", Range(0, 1)) = 1
+        _CustomMatcapEnableLighting ("World MatCap Enable Lighting", Range(0, 1)) = 1
+        _CustomMatcapShadowStrength ("World MatCap Shadow Strength", Range(0, 1)) = 0
+        _CustomMatcapDisableBackface ("World MatCap Disable Backface", Float) = 1
+        _CustomMatcapMaskTex ("World MatCap Mask", 2D) = "white" {}
+
+        //----------------------------------------------------------------------------------------------------------------------
+        // Normal Map 3rd
+        [HideInInspector] _CustomNormal3rdUIEnabled ("Enable Normal Map 3rd", Float) = 0
+        _CustomNormal3rdEnabled ("Enable Normal Map 3rd", Float) = 0
+        [Normal] _CustomNormal3rdTex ("Normal Map 3rd", 2D) = "bump" {}
+        _CustomNormal3rdStrength ("Normal Map 3rd Strength", Range(-2, 2)) = 1
+        _CustomNormal3rdTex_UVMode ("Normal Map 3rd UV Mode", Float) = 0
+        _CustomNormal3rdMaskTex ("Normal Map 3rd Mask", 2D) = "white" {}
+
+        //----------------------------------------------------------------------------------------------------------------------
+        // Rim Light 2nd
+        [HideInInspector] _CustomRim2ndUIEnabled ("Enable Rim Light 2nd", Float) = 0
+        _CustomRim2ndEnabled ("Enable Rim Light 2nd", Float) = 0
+        [HDR] _CustomRim2ndColor ("Rim Light 2nd Color", Color) = (1, 1, 1, 1)
+        _CustomRim2ndStrength ("Rim Light 2nd Strength", Range(0, 1)) = 1
+        _CustomRim2ndPower ("Rim Light 2nd Power", Range(0.1, 32)) = 3
+        _CustomRim2ndBlur ("Rim Light 2nd Blur", Range(0, 1)) = 1
+        _CustomRim2ndBlendMode ("Rim Light 2nd Blend Mode", Float) = 1
+        _CustomRim2ndNormalStrength ("Rim Light 2nd Normal Strength", Range(0, 1)) = 1
+        _CustomRim2ndShadowAttenuation ("Rim Light 2nd Shadow Attenuation", Range(0, 1)) = 0
+        _CustomRim2ndMainColorStrength ("Rim Light 2nd Main Color Strength", Range(0, 1)) = 0
+        _CustomRim2ndMaskTex ("Rim Light 2nd Mask", 2D) = "white" {}
