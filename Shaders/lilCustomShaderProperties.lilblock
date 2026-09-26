@@ -64,17 +64,16 @@
         [HideInInspector] _CustomMatcapUIEnabled ("Enable World MatCap", Float) = 0
         _CustomMatcapEnabled ("Enable World MatCap", Float) = 0
         // The only matcap texture (name kept so existing assignments survive; the old separate Back slot is
-        // gone). Layout 0 = one image, mirrored onto the back hemisphere; 1 = side by side, left half =
-        // front (+Z), right half = back (-Z). View mode uses the whole image / the left half.
+        // gone). World-fixed lookups mirror it onto the back hemisphere.
         [NoScaleOffset] _CustomMatcapFrontTex ("World MatCap Texture", 2D) = "black" {}
-        _CustomMatcapLayout ("World MatCap Layout", Float) = 0
         [HDR] _CustomMatcapColor ("World MatCap Color", Color) = (1, 1, 1, 1)
         _CustomMatcapAlpha ("World MatCap Strength", Range(0, 1)) = 1
         _CustomMatcapBlendMode ("World MatCap Blend Mode", Float) = 1
         _CustomMatcapBlur ("World MatCap Blur", Range(0, 10)) = 0
-        // Space mode (name kept for compatibility): 0 = View (ordinary matcap, Front texture only),
-        // 1 = World (world-fixed dual-hemisphere), 2 = Object (dual-hemisphere fixed to the object).
-        _CustomMatcapWorldFixed ("World MatCap Space", Float) = 0
+        // World fixing (name kept for compatibility): 0 = View (ordinary matcap), 1 = World fixed, in between
+        // the lookup directions are blended. Older materials may hold 2 (removed Object mode); the shader
+        // saturates it to 1.
+        _CustomMatcapWorldFixed ("World MatCap World Fixing", Range(0, 1)) = 0
         _CustomMatcapWorldRotation ("World MatCap Yaw Rotation", Range(-180, 180)) = 0
         _CustomMatcapNormalStrength ("World MatCap Normal Strength", Range(0, 1)) = 1
         _CustomMatcapEnableLighting ("World MatCap Enable Lighting", Range(0, 1)) = 1

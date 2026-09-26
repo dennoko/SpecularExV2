@@ -98,6 +98,8 @@ contrib *= lerp(1.0, fres, FresnelStrength);
 
 ### 2.1 空間モード View / World / Object
 
+> **改訂:** §2.5 で「ワールド固定」0〜1 のブレンドに置き換え、Object モードは廃止した。
+
 既存の `_CustomMatcapWorldFixed`（0/1）を **プロパティ名そのまま** 3値の enum に拡張します。既存マテリアルとアニメーションの互換を保つため、名前は変えません。インスペクター上の表示名は「空間モード」にします。
 
 | 値 | モード | サンプリング方向 |
@@ -111,6 +113,8 @@ contrib *= lerp(1.0, fres, FresnelStrength);
 - 非一様スケールがあるので `normalize` は必須。
 
 ### 2.2 1枚テクスチャ化（Back テクスチャ廃止）
+
+> **改訂:** §2.5 でレイアウト（左右分割）と旧 Back テクスチャの結合機能（`SpecularExMatcapAtlasBaker`）を廃止し、「1枚（後半球は鏡像）」だけにした。
 
 **変更内容**
 - `_CustomMatcapBackTex` と `_CustomMatcapBackEnabled` を**削除**し、HLSL の `TEXTURE2D(_CustomMatcapBackTex)` も削除する。**テクスチャ宣言は 5 → 4 になる**。
@@ -146,6 +150,36 @@ float2 DNKW_MatcapAtlasUV(float2 halfUV, float offset, float lod)
   - 結合後に `_CustomMatcapFrontTex` へ代入し、`_CustomMatcapLayout = 1` にして、保存済みプロパティから旧エントリを削除する。
 - `SyncAllEffective()` から `_CustomMatcapBackEnabled` の同期を削除する。
 - ビルドフック（`SpecularExPackedMaskBuildHook`）で、未移行の旧 Back テクスチャが見つかったら警告ログを出す（自動変換はしない。見た目が変わるため、ユーザーの操作で変換してもらう）。
+
+### 2.5 改訂: ワールド固定ブレンド（Layout・Object 廃止）
+
+**方針**
+- テクスチャは1枚だけ。ワールド側の後半球は常に前半球の鏡像にする。`_CustomMatcapLayout`、`_CustomMatcapFrontTex_TexelSize`、`DNKW_SampleMatcapHalf` / `DNKW_SampleWorldMatcap` / `DNKW_SampleViewMatcap`、`SpecularEx_MatcapAtlas.shader`、`SpecularExMatcapAtlasBaker`、移行 UI、ビルドフックの警告を削除する。
+- 空間モードの選択をやめ、`_CustomMatcapWorldFixed` を **Range(0, 1) のスライダー「ワールド固定」** にする（名前は互換のため維持）。0 = 完全にビュー、1 = 完全にワールド固定。
+- Object モードは用途が少ないので廃止。旧マテリアルの値 2 はシェーダーの `saturate` で 1（ワールド固定）になる。
+
+**ブレンド方法（案 B: 参照方向のブレンド）**
+
+検討した案:
+- 案 A 色のクロスフェード: 2回サンプリングし、中間値でハイライトが二重に見える（ゴースト）。不採用。
+- **案 B 参照方向のブレンド（採用）**: テクスチャを引く前に方向を混ぜ、1回だけサンプリングする。
+- 案 C 案 B ＋ グレージング角でワールド寄りにする補正: 必要になったら追加する。
+
+```hlsl
+float2 DNKW_MatcapUV(float3 dView, float3 dWorld, float t)
+{
+    dView.z  = abs(dView.z);            // 前半球に折り返す（鏡像）
+    dWorld.z = abs(dWorld.z);
+    float3 d = DNKW_SafeNormalize(lerp(dView, dWorld, t), float3(0, 0, 1));
+    return d.xy * 0.5 + 0.5;
+}
+// dView  = mul(fd.cameraMatrix, N)                         （従来のビュー MatCap と同じ）
+// dWorld = DNKW_RotateYaw(reflect(-fd.V, N), yaw)          （従来のワールド固定と同じ）
+```
+- t = 0 / 1 はそれぞれ従来のビュー / ワールド固定（Layout = 0）と一致する。
+- 中間値ではハイライトが1つのまま、カメラに遅れて追従する。
+- 両方向とも z ≥ 0 に折り返すので、正反対になって打ち消し合うことはほぼない（ゼロ長は `DNKW_SafeNormalize` で回避）。
+- `normalize(lerp)` なので t に対する変化は等速ではない。気になる場合は slerp か t のカーブ補正を検討する。
 
 ### 2.3 フレネル強度
 
@@ -296,6 +330,9 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 - [x] **Phase C: MatCap 1枚テクスチャ化と移行**
   - シェーダー側の Back 削除と Layout 実装
   - `SpecularExMatcapAtlasBaker` と移行 UI、ビルドフックでの警告
+- [x] **Phase E: MatCap のレイアウト・Object 廃止とワールド固定ブレンド**（§2.5）
+  - シェーダー、プロパティ、インスペクター、ローカライズ、ビルドフック、ドキュメント
+  - fxc 全バリアントと Roslyn（Editor / VRCSDK.Editor）のコンパイルを再確認
 - [ ] **Phase D: 検証**（自動検証は完了。Unity 上の目視確認が残っている）
 
   **自動検証（完了）**
@@ -315,15 +352,15 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
   - [ ] ライティング環境: ディレクショナルライトあり ／ なし（SH のみ）／ 真っ暗（`_LightMinLimit` のみ）／ ポイントライト（ForwardAdd）／ VRCLV
   - [ ] フェイクライト: VR の左右の目でハイライト位置が一致すること、ForwardAdd で補正されないこと
   - [ ] クリアコート: グレージング角で下地が減衰すること、ForwardAdd 加算との整合
-  - [ ] MatCap Layout = 1: 左右の境界で滲みがないこと（ぼかし 0 / 5 / 10 で確認）、前後の継ぎ目のクロスフェード、Object モードで回転・スケール（非一様を含む）したとき
-  - [ ] 旧マテリアル: Back テクスチャ付きマテリアルで結合ボタンが出ること・結合後の見た目が結合前と一致すること、アニメーションクリップ内の `_CustomMatcapWorldFixed` の互換
+  - [ ] MatCap ワールド固定: 0 / 1 が従来のビュー / ワールド固定と一致すること、0.3〜0.7 でハイライトが二重にならず自然に追従すること、R.z = 0 付近で継ぎ目が出ないこと（ぼかし 0 / 5 / 10）
+  - [ ] 旧マテリアル: 空間モード 2（Object）のマテリアルがワールド固定として描画されること、アニメーションクリップ内の `_CustomMatcapWorldFixed` の互換
   - [ ] ノーマル 3rd: 距離フェードの境界、スクロール時にマスクが固定されていること
   - [ ] リム: 暗所でリムが浮かないこと（ライティング反映）、逆光ブーストで飽和しないこと
-  - [ ] VRChat の Build & Publish（Cutout / Transparent で消えないこと、未移行マテリアルの警告ログ）
+  - [ ] VRChat の Build & Publish（Cutout / Transparent で消えないこと）
 
 ## 7. 負荷見積り
 
 | 項目 | テクスチャ宣言 | サンプル数（最大） | ALU |
 |---|---|---|---|
 | 現状 | 5（パックマスク2枚を含む） | MatCap 2 | — |
-| 拡張後 | **4**（パックマスク2枚を含む） | MatCap 2（同一テクスチャ） | 各機能 +10〜30 命令程度。機能 OFF 時は既存の Enabled 分岐でスキップ |
+| 拡張後 | **4**（パックマスク2枚を含む） | MatCap 1 | 各機能 +10〜30 命令程度。機能 OFF 時は既存の Enabled 分岐でスキップ |

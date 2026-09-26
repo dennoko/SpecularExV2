@@ -26,7 +26,7 @@
     "label_apply_fa": "Multi Light Specular",
     "label_mask": "Mask",
 
-    "help_matcap_front_missing": "Assign a front texture to enable this layer.",
+    "help_matcap_front_missing": "Assign a texture to enable this layer.",
     "label_alpha": "Opacity",
     "label_blend_mode": "Blend Mode",
     "blend_normal": "Normal",
@@ -35,6 +35,7 @@
     "blend_mul": "Multiply",
     "label_blur": "Blur",
     "label_texture": "Texture",
+    "label_world_fixing": "World Fixing",
     "label_world_rotation": "World Rotation (Yaw)",
     "label_enable_lighting": "Enable Lighting",
     "label_shadow_strength": "Shadow Mask",
@@ -71,10 +72,6 @@
     "label_fresnel_power": "Fresnel Power",
     "label_fake_light_blend": "Light Direction Override",
     "label_fake_light_dir": "Override Direction (camera: X=right Y=up Z=toward viewer)",
-    "label_matcap_space": "Space",
-    "space_view": "View (ordinary)",
-    "space_world": "World Fixed",
-    "space_object": "Object Fixed",
     "label_hue": "Hue",
     "label_saturation": "Saturation",
     "label_value": "Value",
@@ -87,15 +84,6 @@
     "label_distance_fade_strength": "Distance Fade Strength",
     "label_border": "Border",
     "label_vertical_bias": "Vertical Restriction (+up / -down)",
-    "label_backlight": "Backlight Boost",
+    "label_backlight": "Backlight Boost"
 
-    "label_matcap_layout": "Layout",
-    "layout_single": "Single (back mirrored)",
-    "layout_side_by_side": "Side by side (left = front / right = back)",
-    "help_matcap_single": "The image is used for the front hemisphere and mirrored onto the back.",
-    "help_matcap_single_view": "The whole image is used as the matcap.",
-    "help_matcap_side_by_side": "The left half is the front hemisphere (+Z), the right half the back (-Z).",
-    "help_matcap_side_by_side_view": "View mode uses only the left (front) half.",
-    "help_matcap_legacy_back": "This material still has a texture in the removed 'Back (-Z)' slot. MatCap now uses one side-by-side texture, so until combined the back hemisphere shows the mirrored front.",
-    "button_matcap_bake_atlas": "Combine front/back into one texture"
 }

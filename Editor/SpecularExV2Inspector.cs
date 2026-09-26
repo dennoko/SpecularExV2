@@ -55,7 +55,6 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapUIEnabled;
         MaterialProperty _CustomMatcapEnabled;
         MaterialProperty _CustomMatcapFrontTex;
-        MaterialProperty _CustomMatcapLayout;
         MaterialProperty _CustomMatcapColor;
         MaterialProperty _CustomMatcapAlpha;
         MaterialProperty _CustomMatcapBlendMode;
@@ -168,7 +167,6 @@ namespace Dennokoworks.SpecularExV2
             _CustomMatcapUIEnabled           = FindProperty("_CustomMatcapUIEnabled",           props, false);
             _CustomMatcapEnabled             = FindProperty("_CustomMatcapEnabled",             props, false);
             _CustomMatcapFrontTex            = FindProperty("_CustomMatcapFrontTex",            props, false);
-            _CustomMatcapLayout              = FindProperty("_CustomMatcapLayout",              props, false);
             _CustomMatcapColor               = FindProperty("_CustomMatcapColor",               props, false);
             _CustomMatcapAlpha               = FindProperty("_CustomMatcapAlpha",               props, false);
             _CustomMatcapBlendMode           = FindProperty("_CustomMatcapBlendMode",           props, false);
@@ -631,7 +629,7 @@ namespace Dennokoworks.SpecularExV2
             _foldMatcap = Foldout(Loc("foldout_matcap"), _foldMatcap);
             DrawSectionMenu(new[] {
                 _CustomMatcapUIEnabled,         _CustomMatcapEnabled,
-                _CustomMatcapFrontTex,          _CustomMatcapLayout,
+                _CustomMatcapFrontTex,
                 _CustomMatcapColor,             _CustomMatcapAlpha,
                 _CustomMatcapBlendMode,         _CustomMatcapBlur,
                 _CustomMatcapWorldFixed,        _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
@@ -647,20 +645,13 @@ namespace Dennokoworks.SpecularExV2
             if (IsOn(_CustomMatcapUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
-                PopupProp(_CustomMatcapWorldFixed, Loc("label_matcap_space"), new[] { Loc("space_view"), Loc("space_world"), Loc("space_object") });
-                // World / Object share the dual-hemisphere fields. Mixed selection shows them too, so none of
-                // them is hidden while it matters.
-                bool hemisphere = IsOnOrMixed(_CustomMatcapWorldFixed);
-                lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapFrontTex, Loc("label_texture"));
-                PopupProp(_CustomMatcapLayout, Loc("label_matcap_layout"), new[] { Loc("layout_single"), Loc("layout_side_by_side") });
                 if (_CustomMatcapFrontTex != null && _CustomMatcapFrontTex.textureValue == null && !_CustomMatcapFrontTex.hasMixedValue)
                     EditorGUILayout.HelpBox(Loc("help_matcap_front_missing"), MessageType.Info);
-                else if (_CustomMatcapLayout != null && !_CustomMatcapLayout.hasMixedValue)
-                    EditorGUILayout.HelpBox(Loc(IsOn(_CustomMatcapLayout)
-                        ? (hemisphere ? "help_matcap_side_by_side" : "help_matcap_side_by_side_view")
-                        : (hemisphere ? "help_matcap_single" : "help_matcap_single_view")), MessageType.None);
-                DrawLegacyMatcapMigration();
+                Prop(_CustomMatcapWorldFixed, Loc("label_world_fixing"));
+                // Yaw only affects the world-fixed side. Mixed values show it too, so it is never hidden
+                // while it matters.
+                bool worldFixed = _CustomMatcapWorldFixed != null && (_CustomMatcapWorldFixed.hasMixedValue || _CustomMatcapWorldFixed.floatValue > 0f);
                 Prop(_CustomMatcapColor, Loc("label_color"));
                 Prop(_CustomMatcapAlpha, Loc("label_alpha"));
                 PopupProp(_CustomMatcapBlendMode, Loc("label_blend_mode"), BlendModes());
@@ -671,7 +662,7 @@ namespace Dennokoworks.SpecularExV2
                 VecSlider(_CustomMatcapHSVG, 3, Loc("label_gamma"),       0.01f, 2f);
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapBlur, Loc("label_blur"));
-                if (hemisphere) Prop(_CustomMatcapWorldRotation, Loc("label_world_rotation"));
+                if (worldFixed) Prop(_CustomMatcapWorldRotation, Loc("label_world_rotation"));
                 Prop(_CustomMatcapNormalStrength, Loc("label_normal_strength"));
                 Prop(_CustomMatcapFresnelStrength, Loc("label_fresnel_strength"));
                 Prop(_CustomMatcapFresnelPower,    Loc("label_fresnel_power"));
@@ -684,21 +675,6 @@ namespace Dennokoworks.SpecularExV2
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
-        }
-
-        // Materials saved before the MatCap Back slot was removed still carry that texture in their saved
-        // properties; offer to combine it with the front texture into one side-by-side image.
-        void DrawLegacyMatcapMigration()
-        {
-            var legacy = new List<Material>();
-            foreach (var t in m_MaterialEditor.targets)
-                if (t is Material m && SpecularExMatcapAtlasBaker.HasLegacyBackTexture(m)) legacy.Add(m);
-            if (legacy.Count == 0) return;
-
-            EditorGUILayout.HelpBox(Loc("help_matcap_legacy_back"), MessageType.Warning);
-            // Deferred out of OnGUI because it writes and imports assets.
-            if (GUILayout.Button(Loc("button_matcap_bake_atlas")))
-                EditorApplication.delayCall += () => { foreach (var m in legacy) SpecularExMatcapAtlasBaker.Migrate(m); };
         }
 
         // -- Normal Map 3rd --

@@ -189,56 +189,22 @@ void DNKW_ApplySpecularLayer(inout lilFragData fd, float mask, float3 color, flo
 // World-Oriented Dual-Hemisphere MatCap
 //----------------------------------------------------------------------------------------------------------------------
 
-// Half width (in R.z) of the crossfade between the front and back hemispheres.
-#define DNKW_MATCAP_SEAM_WIDTH 0.15
-
-// Samples one half of a side-by-side matcap (offset 0 = left/front, 0.5 = right/back) with a 0..1 uv of
-// that half. The x coordinate is kept one texel (of the sampled mip) away from the half's edges, so
-// bilinear filtering and the mip chain (whose filter spans the middle seam) never pull in the other half.
-float4 DNKW_SampleMatcapHalf(float2 uv, float offset, float lod)
+// Matcap uv for a world-fixing blend t (0 = ordinary view matcap, 1 = world-fixed).
+// Instead of crossfading two samples (which shows two ghosted highlights in between), the two LOOKUP
+// DIRECTIONS are blended and the texture is sampled once:
+//   view : the view-space normal (lilToon's head-centered camera matrix, same uv as fd.uvMat)
+//   world: the world-space reflection vector R = reflect(-V, N), yaw-rotated by the caller
+// Both use the matcap (orthographic hemisphere) projection uv = d.xy * 0.5 + 0.5. The world side is
+// mirrored across the Z plane (z folded to +), so one image covers both hemispheres continuously; the
+// view side is folded too so the two directions are never (near) opposite. In between, the highlight
+// follows the camera with a lag instead of sticking to the screen, while never leaving the image.
+// t = 0 and t = 1 reproduce the pure modes exactly.
+float2 DNKW_MatcapUV(float3 dView, float3 dWorld, float t)
 {
-    float pad = _CustomMatcapFrontTex_TexelSize.x * exp2(lod) * 2.0; // 1 texel of mip `lod`, in half-uv units
-    uv.x = clamp(uv.x, pad, 1.0 - pad) * 0.5 + offset;
-    return LIL_SAMPLE_2D_LOD(_CustomMatcapFrontTex, lil_sampler_linear_clamp, uv, lod);
-}
-
-// Samples the world matcap for a WORLD- (or object-) space reflection vector R.
-// Each hemisphere uses the matcap (orthographic hemisphere) projection uv = dir.xy * 0.5 + 0.5, so any
-// ordinary matcap image can be used as a hemisphere:
-//   Front (+Z): looking toward +Z  -> uv = ( R.x, R.y)
-//   Back  (-Z): looking toward -Z  -> uv = (-R.x, R.y)   (+X is on the viewer's left there)
-// With these conventions a direction on the seam (R.z = 0) lands on the matching edge of both images,
-// and the smoothstep crossfade hides residual differences.
-// layout 0: the single image is mirrored across the Z plane (uv = (R.x, R.y) on both sides), which is
-//   continuous by construction and needs a single sample.
-// layout 1: side by side in the same texture (left = front, right = back), two samples.
-// Explicit-LOD sampling: implicit derivatives would jump at the hemisphere switch and at the uv
-// discontinuity, producing a 1-pixel mip seam.
-float4 DNKW_SampleWorldMatcap(float3 R, float layout, float lod)
-{
-    float2 uvFront = R.xy * 0.5 + 0.5;
-    float4 col;
-    if (layout < 0.5)
-    {
-        col = LIL_SAMPLE_2D_LOD(_CustomMatcapFrontTex, lil_sampler_linear_clamp, uvFront, lod);
-    }
-    else
-    {
-        float2 uvBack = float2(-R.x, R.y) * 0.5 + 0.5;
-        float4 front = DNKW_SampleMatcapHalf(uvFront, 0.0, lod);
-        float4 back  = DNKW_SampleMatcapHalf(uvBack,  0.5, lod);
-        col = lerp(back, front, smoothstep(-DNKW_MATCAP_SEAM_WIDTH, DNKW_MATCAP_SEAM_WIDTH, R.z));
-    }
-    return col;
-}
-
-// Ordinary view-space matcap (world fixing OFF): the whole image, or its left (front) half with layout 1.
-float4 DNKW_SampleViewMatcap(float2 uv, float layout, float lod)
-{
-    float4 col;
-    if (layout < 0.5) col = LIL_SAMPLE_2D_LOD(_CustomMatcapFrontTex, lil_sampler_linear_clamp, uv, lod);
-    else              col = DNKW_SampleMatcapHalf(uv, 0.0, lod);
-    return col;
+    dView.z  = abs(dView.z);
+    dWorld.z = abs(dWorld.z);
+    float3 d = DNKW_SafeNormalize(lerp(dView, dWorld, t), float3(0.0, 0.0, 1.0));
+    return d.xy * 0.5 + 0.5;
 }
 
 // MatCap lighting, mirroring lilToon's lilGetMatCap (_MatCapEnableLighting).

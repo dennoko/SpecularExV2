@@ -69,8 +69,6 @@
     float  _CustomMatcapFresnelPower; \
     float4 _CustomMatcapHSVG; \
     float  _CustomMatcapMainColorStrength; \
-    float  _CustomMatcapLayout; \
-    float4 _CustomMatcapFrontTex_TexelSize; \
     float  _CustomMatcapEnabled; \
     float4 _CustomMatcapMaskTex_ST; \
     float4 _CustomNormal3rdTex_ST; \
@@ -208,34 +206,27 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
     }
 
 //----------------------------------------------------------------------------------------------------------------------
-// (3) BEFORE_RIMLIGHT - MatCap 2nd (optionally World-Oriented Dual-Hemisphere)
+// (3) BEFORE_RIMLIGHT - MatCap 2nd (with world fixing)
 //
-// One texture only (_CustomMatcapFrontTex): _CustomMatcapLayout 0 = a single image (mirrored onto the back
-// hemisphere), 1 = side by side (left half = front +Z, right half = back -Z). See DNKW_SampleMatcapHalf.
-// _CustomMatcapWorldFixed = 0 (default): an ordinary view-space matcap (whole image, or the left half with
-//   layout 1) with lilToon's head-centered camera matrix (same UV as fd.uvMat, VR-stereo safe).
-// _CustomMatcapWorldFixed = 1: the texture is looked up with the WORLD-space reflection vector
-//   R = reflect(-V, N), optionally rotated around world Y (yaw). The highlight therefore stays fixed to the
-//   world while the camera or the avatar turns — a lightweight pseudo cubemap made of two hemispheres
-//   (front = +Z, back = -Z, crossfaded around R.z = 0; see DNKW_SampleWorldMatcap).
-// _CustomMatcapWorldFixed = 2 (Object): same dual-hemisphere lookup, but R is taken to OBJECT space, so the
-//   reflection turns with the avatar and stays still when only the camera moves. Yaw is then around the
-//   object's local Y.
+// One texture only (_CustomMatcapFrontTex); in world-fixed lookups the back hemisphere is its mirror image.
+// _CustomMatcapWorldFixed (0..1, name kept for compatibility; older materials stored 0/1/2 and are
+// saturated here, so World and the removed Object mode both become 1):
+//   0 = an ordinary view-space matcap (lilToon's head-centered camera matrix, VR-stereo safe)
+//   1 = world-fixed: looked up with the WORLD-space reflection vector, optionally rotated around world Y
+//       (yaw), so the highlight stays fixed to the world while the camera or the avatar turns
+//   in between: the lookup directions are blended (DNKW_MatcapUV), so there is one highlight that lags
+//       behind the camera instead of two crossfaded ones.
+// Explicit-LOD sampling (Blur = mip level); the world side's uv folds at R.z = 0, where implicit
+// derivatives would produce a 1-pixel mip seam.
 // Blend modes use lilBlendColor: 0 = Normal, 1 = Add, 2 = Screen, 3 = Multiply.
 // The texture color goes through lilToneCorrection (HSVG, skipped at the neutral value) and can be
 // multiplied by the main color; the opacity can be weighted toward grazing angles (fresnel).
 #define BEFORE_RIMLIGHT \
     if (_CustomMatcapEnabled > 0.5) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
-        float4 _wmTex; \
-        if (_CustomMatcapWorldFixed > 0.5) { \
-            float3 _wmR = reflect(-fd.V, _wmN); \
-            if (_CustomMatcapWorldFixed > 1.5) _wmR = lilTransformDirWStoOS(_wmR, true); \
-            _wmR = DNKW_RotateYaw(_wmR, _CustomMatcapWorldRotation); \
-            _wmTex = DNKW_SampleWorldMatcap(_wmR, _CustomMatcapLayout, _CustomMatcapBlur); \
-        } else { \
-            _wmTex = DNKW_SampleViewMatcap(mul(fd.cameraMatrix, _wmN).xy * 0.5 + 0.5, _CustomMatcapLayout, _CustomMatcapBlur); \
-        } \
+        float3 _wmR   = DNKW_RotateYaw(reflect(-fd.V, _wmN), _CustomMatcapWorldRotation); \
+        float2 _wmUV  = DNKW_MatcapUV(mul(fd.cameraMatrix, _wmN), _wmR, saturate(_CustomMatcapWorldFixed)); \
+        float4 _wmTex = LIL_SAMPLE_2D_LOD(_CustomMatcapFrontTex, lil_sampler_linear_clamp, _wmUV, _CustomMatcapBlur); \
         float3 _wmRGB = DNKW_ToneCorrection(_wmTex.rgb, _CustomMatcapHSVG); \
         _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \
         float3 _wmCol = DNKW_MatcapLighting(_wmRGB, fd.lightColor, _CustomMatcapEnableLighting, _CustomMatcapBlendMode); \

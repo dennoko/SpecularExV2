@@ -33,13 +33,6 @@ namespace Dennokoworks.SpecularExV2
                     foreach (var key in AnimationUtility.GetObjectReferenceCurve(clip, binding))
                         if (key.value is Material m) materials.Add(m);
 
-            // Not converted automatically: combining changes the material's look (the back hemisphere was
-            // its own image), so the user converts from the inspector. Until then the front is mirrored.
-            foreach (var m in materials)
-                if (SpecularExMatcapAtlasBaker.HasLegacyBackTexture(m))
-                    Debug.LogWarning($"[SpecularExV2] Material '{m.name}' still uses the removed MatCap back texture slot; " +
-                                     "its back hemisphere shows the mirrored front texture. Use 'Combine front/back into one texture' in its inspector.", m);
-
             if (SpecularExPackedMaskStore.EnsureAll(materials, persist: false)) return true;
             Debug.LogError("[SpecularExV2] Upload stopped: some SpecularExV2 masks could not be packed (see the errors above).");
             return false;

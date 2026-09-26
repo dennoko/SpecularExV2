@@ -26,7 +26,7 @@
     "label_apply_fa": "複数ライトから光沢を生成",
     "label_mask": "マスク",
 
-    "help_matcap_front_missing": "前半球テクスチャを設定すると有効になります。",
+    "help_matcap_front_missing": "テクスチャを設定すると有効になります。",
     "label_alpha": "不透明度",
     "label_blend_mode": "合成モード",
     "blend_normal": "通常",
@@ -35,6 +35,7 @@
     "blend_mul": "乗算",
     "label_blur": "ぼかし",
     "label_texture": "テクスチャ",
+    "label_world_fixing": "ワールド固定",
     "label_world_rotation": "ワールド回転 (Y軸)",
     "label_enable_lighting": "ライトの明るさを反映",
     "label_shadow_strength": "影部分で無効化",
@@ -71,10 +72,6 @@
     "label_fresnel_power": "フレネルの鋭さ",
     "label_fake_light_blend": "光源方向の補正",
     "label_fake_light_dir": "補正方向 (カメラ基準: X=右 Y=上 Z=手前)",
-    "label_matcap_space": "空間モード",
-    "space_view": "ビュー (通常)",
-    "space_world": "ワールド固定",
-    "space_object": "オブジェクト固定",
     "label_hue": "色相",
     "label_saturation": "彩度",
     "label_value": "明度",
@@ -87,15 +84,6 @@
     "label_distance_fade_strength": "距離フェード強度",
     "label_border": "境界",
     "label_vertical_bias": "上下方向の制限 (+上 / -下)",
-    "label_backlight": "逆光ブースト",
+    "label_backlight": "逆光ブースト"
 
-    "label_matcap_layout": "レイアウト",
-    "layout_single": "1枚 (後半球は鏡像)",
-    "layout_side_by_side": "左右分割 (左=前半球 / 右=後半球)",
-    "help_matcap_single": "1枚の画像を前半球に使い、後半球には鏡像を使います。",
-    "help_matcap_single_view": "画像全体をマットキャップとして使います。",
-    "help_matcap_side_by_side": "左半分を前半球 (+Z)、右半分を後半球 (-Z) として使います。",
-    "help_matcap_side_by_side_view": "ビューモードでは左半分 (前半球) だけを使います。",
-    "help_matcap_legacy_back": "旧バージョンの「後半球 (-Z)」テクスチャが残っています。現在は1枚のテクスチャを左右に分けて使うため、このままでは後半球に前半球の鏡像が表示されます。",
-    "button_matcap_bake_atlas": "前後を1枚に結合"
 }

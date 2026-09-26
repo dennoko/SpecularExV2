@@ -76,26 +76,27 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
 
 ### 2.2 追加 Matcap (World-Oriented Dual-Hemisphere Matcap)
 従来の MatCap はカメラビュー空間（View Space）に固定され、カメラが回転してもハイライトが画面に対して静止して見えます。  
-本機能では、**「ワールド座標に固定された周囲空間を反射しているような表現」** を、Cubemap を使用せず 2枚の半球 Matcap（またはデュアル半球マップ）によって実現します。
+本機能では、**「ワールド座標に固定された周囲空間を反射しているような表現」** を、Cubemap を使用せず 1枚の Matcap（後半球は鏡像）によって実現し、通常のビュー MatCap との間を任意の強さでブレンドできます。
 
 - **空間表現の幾何ロジック**:
   - ワールド空間の反射ベクトル $R = \mathrm{reflect}(-V, N)$ を算出。
   - 通常の視線追従 MatCap（$N_{\mathrm{vs}}$ サンプリング）ではなく、**反射ベクトル $R$ のワールド空間座標** を基準にサンプリング UV を生成。
-  - **球体空間の2半球合成（Dual-Hemisphere / Dual-Paraboloid）**:
-    - 全天球を「前半球（Front Hemisphere / $+Z$ 側）」と「後半球（Back Hemisphere / $-Z$ 側）」の2つに分割。
-    - **テクスチャは1枚** (`_CustomMatcapFrontTex`)。レイアウト `_CustomMatcapLayout` で「1枚 (後半球は鏡像)」または「左右分割 (左=前半球 / 右=後半球)」を選ぶ。左右分割では mip レベルに応じて各半分の内側へクランプし、中央の境界から滲まないようにする。
-    - 反射ベクトル $R_z$ の向きに応じてサンプリングを切り替え、境界付近（$R_z \approx 0$）は破綻しないよう `smoothstep` でシームレスにクロスフェード合成。
+  - **球体空間の2半球（Dual-Hemisphere）**:
+    - 全天球を「前半球（$+Z$ 側）」と「後半球（$-Z$ 側）」の2つに分割。
+    - **テクスチャは1枚** (`_CustomMatcapFrontTex`)。後半球には前半球の鏡像を使う（$R_z$ を正側に折り返す）ので、$R_z = 0$ の境界でも連続になり、サンプルは1回で済む。
     - アバターが回転したり視点を動かした際、ワールド空間に固定された背景が滑らかに映り込む（軽量な疑似 Cubemap として動作）。
-- **空間モード** (`_CustomMatcapWorldFixed`, 互換のため名前は維持):
-  - 0 = ビュー (通常の MatCap。レイアウトが左右分割なら左半分のみ使用)
-  - 1 = ワールド固定 (上記のデュアル半球)
-  - 2 = オブジェクト固定 (反射ベクトルをオブジェクト空間へ変換。アバターの回転には追従し、カメラの移動には追従しない)
+- **ワールド固定** (`_CustomMatcapWorldFixed`, 0〜1。互換のため名前は維持):
+  - 0 = ビュー（通常の MatCap。参照方向はビュー空間法線 `mul(fd.cameraMatrix, N)`）
+  - 1 = ワールド固定（参照方向はワールド反射ベクトル $R$）
+  - 中間 = **参照方向のブレンド**: 両方の方向を $z \ge 0$ に折り返してから `normalize(lerp(dView, dWorld, t))` を取り、1回だけサンプリングする（`DNKW_MatcapUV`）。色をクロスフェードしないので中間値でもハイライトは1つで、カメラに遅れて追従する見え方になる。0 と 1 はそれぞれ純粋なモードと完全に一致する。
+  - 旧マテリアルの値 2（廃止したオブジェクト固定）はシェーダー内の `saturate` で 1 として扱う。
 - **回転オフセット**:
-  - Y 軸周りの回転角度（Yaw Rotation）スライダーで反射向きを調整する (ワールド固定ではワールド Y、オブジェクト固定ではローカル Y)。
+  - Y 軸周りの回転角度（Yaw Rotation）スライダーでワールド側の反射向きを調整する（ワールド固定 > 0 のときだけ表示）。
 - **パラメーター一覧**:
   - 有効化トグル (`_CustomMatcapEnabled` / `_CustomMatcapUIEnabled`)
-  - テクスチャ (`_CustomMatcapFrontTex`) とレイアウト (`_CustomMatcapLayout`: 0=1枚, 1=左右分割)
-  - ※ 旧 `_CustomMatcapBackTex` は廃止。旧マテリアルはインスペクターの「前後を1枚に結合」で左右分割テクスチャに変換する (`SpecularExMatcapAtlasBaker`)
+  - テクスチャ (`_CustomMatcapFrontTex`)
+  - ※ 旧 `_CustomMatcapBackTex` は廃止（残っていても参照しない。後半球は前半球の鏡像になる）
+  - ワールド固定 (`_CustomMatcapWorldFixed`, 0〜1) と Yaw 回転 (`_CustomMatcapWorldRotation`)
   - 合成カラー (`_CustomMatcapColor`, HDR)
   - 強度・不透明度 (`_CustomMatcapAlpha`)
   - ブレンドモード (`_CustomMatcapBlendMode`): 通常(0), 加算(1), スクリーン(2), 乗算(3)
@@ -175,7 +176,7 @@ lilToon 本体のリムライトに加えて独立して発光/陰影効果を�
   - HLSL 内で `TEXTURE2D(...)` を個別に宣言すると、プロパティ数ではなく宣言テクスチャ数としてハードウェア上限を消費する。
   - 単一チャンネル（主に白黒マスク）として参照する4つのテクスチャを **1枚の RGBA テクスチャ（`_CustomMaskPacked`）** に統合する。
   - 各マスクは個別の Tiling/Offset（`_ST`）を持ち、シェーダー内では `_CustomMaskPacked` をそれぞれの UV でチャンネルサンプリングするため、機能制限（解像度やタイリングの自由度）は一切発生しない。
-  - MatCap の前後半球も1枚のテクスチャ（左右分割）にまとめる。
+  - MatCap は前後半球とも1枚のテクスチャで賄う（後半球は鏡像）。
   - 結果として、シェーダーが宣言するテクスチャは **4枚**: `_CustomMaskPacked`, `_CustomMaskPacked2`, `_CustomNormal3rdTex`, `_CustomMatcapFrontTex`（旧構成は `_CustomMatcapBackTex` を含む5枚）。
 
 ### 3.2 パックドマスクのチャンネル割り当て
@@ -222,7 +223,6 @@ Shaders/
 ├── lilCustomShaderProperties.lilblock # マテリアルプロパティ定義
 ├── lilCustomShaderInsert.lilblock  # custom_insert.hlsl のインクルード
 ├── SpecularEx_MaskPacker.shader    # マスクパッキング用 Blit シェーダー
-├── SpecularEx_MatcapAtlas.shader   # 旧 Front/Back MatCap を左右分割1枚に結合する Blit シェーダー
 └── lts*.lilcontainer               # 各描画モード（Opaque, Cutout, Trans 等）
 ```
 
@@ -243,7 +243,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
                              ・fd.col へのスペキュラー加算
       ↓
 [BEFORE_RIMLIGHT] ────────→ ③ 追加 MatCap (World-Oriented Matcap)
-                             ・ワールド反射ベクトルに基づく半球 MatCap サンプリング
+                             ・ビュー法線とワールド反射ベクトルの参照方向ブレンドで1回サンプリング
                              ・各種ブレンドモードで fd.col に合成
       ↓
 [lilToon Rim Light 計算]
@@ -278,7 +278,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 `SpecularExV2Inspector`（`lilToonInspector` 派生）を実装し、以下の構成で lilToon の UI に自然に統合します。
 
 1. **追加スペキュラー (Specular 2nd / 3rd)**: 有効化、色、強度 ／ タイプ、スムースネス、クリアコート (ON 時はメタリック・反射率を隠す)、フレネル ／ ライティング反映、光源方向の補正 ／ 法線強度、影減衰、メインカラー反映、ForwardAdd適用 ／ マスク
-2. **追加 MatCap**: 有効化、空間モード、テクスチャ、レイアウト (旧 Back テクスチャが残っていれば結合ボタン) ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転、法線強度、フレネル ／ ライティング/影反映、裏面 ／ マスク
+2. **追加 MatCap**: 有効化、テクスチャ、ワールド固定 ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転 (ワールド固定 > 0 のとき)、法線強度、フレネル ／ ライティング/影反映、裏面 ／ マスク
 3. **追加ノーマル (Normal Map 3rd)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
 4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、ブレンドモード、ライティング反映 ／ Power、境界、ぼかし ／ 上下制限、逆光ブースト ／ 法線強度、影減衰、メインカラー反映 ／ マスク
 5. **マスクパッキング状態 (Mask Packing Status)**: 自動パックの稼働状態、現在のフィンガープリント、手動強制再ベイクボタン
