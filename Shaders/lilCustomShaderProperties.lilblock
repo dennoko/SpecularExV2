@@ -97,6 +97,17 @@
         _CustomNormal3rdMaskTex ("Normal Map 3rd Mask", 2D) = "white" {}
 
         //----------------------------------------------------------------------------------------------------------------------
+        // Normal Map 4th (blended on top of 3rd; same layout)
+        [HideInInspector] _CustomNormal4thUIEnabled ("Enable Normal Map 4th", Float) = 0
+        _CustomNormal4thEnabled ("Enable Normal Map 4th", Float) = 0
+        [Normal] _CustomNormal4thTex ("Normal Map 4th", 2D) = "bump" {}
+        _CustomNormal4thStrength ("Normal Map 4th Strength", Range(-2, 2)) = 1
+        _CustomNormal4thTex_UVMode ("Normal Map 4th UV Mode", Float) = 0
+        _CustomNormal4thTex_ScrollRotate ("Normal Map 4th Scroll Rotate", Vector) = (0, 0, 0, 0)
+        _CustomNormal4thDistanceFade ("Normal Map 4th Distance Fade", Vector) = (2, 10, 0, 0)
+        _CustomNormal4thMaskTex ("Normal Map 4th Mask", 2D) = "white" {}
+
+        //----------------------------------------------------------------------------------------------------------------------
         // Rim Light 2nd
         [HideInInspector] _CustomRim2ndUIEnabled ("Enable Rim Light 2nd", Float) = 0
         _CustomRim2ndEnabled ("Enable Rim Light 2nd", Float) = 0

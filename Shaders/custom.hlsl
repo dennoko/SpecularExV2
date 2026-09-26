@@ -76,6 +76,13 @@
     float4 _CustomNormal3rdDistanceFade; \
     float  _CustomNormal3rdEnabled; \
     float4 _CustomNormal3rdMaskTex_ST; \
+    float4 _CustomNormal4thTex_ST; \
+    float  _CustomNormal4thStrength; \
+    float  _CustomNormal4thTex_UVMode; \
+    float4 _CustomNormal4thTex_ScrollRotate; \
+    float4 _CustomNormal4thDistanceFade; \
+    float  _CustomNormal4thEnabled; \
+    float4 _CustomNormal4thMaskTex_ST; \
     float4 _CustomRim2ndColor; \
     float  _CustomRim2ndStrength; \
     float  _CustomRim2ndPower; \
@@ -111,13 +118,14 @@
 //     lil_sampler_linear_clamp), so no SamplerState is declared here.
 //   * 64 TEXTURE PARAMETERS per shader: the single-channel masks are packed into RGBA textures:
 //       Packed 1: R = Specular 2nd   G = Rim Light 2nd   B = Normal Map 3rd   A = World MatCap
-//       Packed 2: R = Specular 3rd   G = Rim Light 3rd
+//       Packed 2: R = Specular 3rd   G = Rim Light 3rd   B = Normal Map 4th
 //     Each channel is still sampled with its own mask slot's tiling/offset, so nothing is lost.
-//     The two matcap hemispheres share ONE texture (side-by-side layout) instead of two slots.
+//     The matcap uses ONE texture (the back hemisphere is its mirror image).
 #define LIL_CUSTOM_TEXTURES \
     TEXTURE2D(_CustomMaskPacked); \
     TEXTURE2D(_CustomMaskPacked2); \
     TEXTURE2D(_CustomNormal3rdTex); \
+    TEXTURE2D(_CustomNormal4thTex); \
     TEXTURE2D(_CustomMatcapFrontTex);
 
 // Add vertex copy
@@ -157,31 +165,39 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
     fd.uvRim        = float2(fd.nvabs, fd.nvabs);
 
 //----------------------------------------------------------------------------------------------------------------------
-// (1) BEFORE_AUDIOLINK - Normal Map 3rd
+// (1) BEFORE_AUDIOLINK - Normal Map 3rd / 4th
 //
-// Layered on top of lilToon's Normal 1st/2nd result (which is left untouched): the current normal is
-// brought to tangent space and Whiteout-blended with the 3rd map via lilBlendNormal, exactly like lilToon
-// blends 1st and 2nd. lilUnpackNormalScale scales tangent xy without clamping, so strength is -2..2
-// (negative flips the relief). The mask (packed .b) scales the strength.
+// Layered on top of lilToon's Normal 1st/2nd result (which is left untouched), 3rd first, then 4th on top
+// of that: the current normal is brought to tangent space and Whiteout-blended with the layer's map via
+// lilBlendNormal, exactly like lilToon blends 1st and 2nd. lilUnpackNormalScale scales tangent xy without
+// clamping, so strength is -2..2 (negative flips the relief). The mask (3rd = packed 1 .b, 4th = packed
+// 2 .b) scales the strength.
 // The map's UV scrolls/rotates via lilCalcUV (lilToon's ScrollRotate layout); the mask does not move.
 // Distance fade lowers the strength with the head distance fd.depth (set before this hook) to calm
-// moire/shimmering of fine detail far away. The texture is always sampled (no dynamic branch around an
-// implicit-derivative sample).
+// moire/shimmering of fine detail far away. The texture is always sampled inside the layer (no dynamic
+// branch around an implicit-derivative sample; the enable flags are uniform).
+// The derived normals are refreshed once, after both layers.
+#define DNKW_NORMAL_LAYER(tex, st, uvMode, scrollRotate, fade, strength, maskValue) \
+    { \
+        float2 _nUV = fd.uv0; \
+        if (uvMode == 1) _nUV = fd.uv1; \
+        if (uvMode == 2) _nUV = fd.uv2; \
+        if (uvMode == 3) _nUV = fd.uv3; \
+        _nUV = lilCalcUV(_nUV, st, scrollRotate); \
+        float  _nMask  = (maskValue); \
+        float4 _nFade  = fade; \
+        _nMask *= lerp(1.0, 1.0 - saturate((fd.depth - _nFade.x) / max(_nFade.y - _nFade.x, 1e-4)), _nFade.z); \
+        float4 _nRaw   = LIL_SAMPLE_2D(tex, sampler_linear_repeat, _nUV); \
+        float3 _nNTS   = lilUnpackNormalScale(_nRaw, strength * _nMask); \
+        float3 _nCurTS = mul(fd.TBN, fd.N); \
+        float3 _nBlend = lilBlendNormal(_nCurTS, _nNTS); \
+        fd.N = normalize(mul(_nBlend, fd.TBN)); \
+    }
+
 #define BEFORE_AUDIOLINK \
-    if (_CustomNormal3rdEnabled > 0.5) { \
-        float2 _n3UV = fd.uv0; \
-        if (_CustomNormal3rdTex_UVMode == 1) _n3UV = fd.uv1; \
-        if (_CustomNormal3rdTex_UVMode == 2) _n3UV = fd.uv2; \
-        if (_CustomNormal3rdTex_UVMode == 3) _n3UV = fd.uv3; \
-        _n3UV = lilCalcUV(_n3UV, _CustomNormal3rdTex_ST, _CustomNormal3rdTex_ScrollRotate); \
-        float  _n3Mask  = DNKW_SAMPLE_MASK(_CustomNormal3rdMaskTex_ST).b; \
-        float4 _n3Fade  = _CustomNormal3rdDistanceFade; \
-        _n3Mask *= lerp(1.0, 1.0 - saturate((fd.depth - _n3Fade.x) / max(_n3Fade.y - _n3Fade.x, 1e-4)), _n3Fade.z); \
-        float4 _n3Raw   = LIL_SAMPLE_2D(_CustomNormal3rdTex, sampler_linear_repeat, _n3UV); \
-        float3 _n3NTS   = lilUnpackNormalScale(_n3Raw, _CustomNormal3rdStrength * _n3Mask); \
-        float3 _n3CurTS = mul(fd.TBN, fd.N); \
-        float3 _n3Blend = lilBlendNormal(_n3CurTS, _n3NTS); \
-        fd.N = normalize(mul(_n3Blend, fd.TBN)); \
+    if (_CustomNormal3rdEnabled > 0.5 || _CustomNormal4thEnabled > 0.5) { \
+        if (_CustomNormal3rdEnabled > 0.5) DNKW_NORMAL_LAYER(_CustomNormal3rdTex, _CustomNormal3rdTex_ST, _CustomNormal3rdTex_UVMode, _CustomNormal3rdTex_ScrollRotate, _CustomNormal3rdDistanceFade, _CustomNormal3rdStrength, DNKW_SAMPLE_MASK(_CustomNormal3rdMaskTex_ST).b) \
+        if (_CustomNormal4thEnabled > 0.5) DNKW_NORMAL_LAYER(_CustomNormal4thTex, _CustomNormal4thTex_ST, _CustomNormal4thTex_UVMode, _CustomNormal4thTex_ScrollRotate, _CustomNormal4thDistanceFade, _CustomNormal4thStrength, DNKW_SAMPLE_MASK2(_CustomNormal4thMaskTex_ST).b) \
         DNKW_REFRESH_NORMAL_DERIVED \
     }
 

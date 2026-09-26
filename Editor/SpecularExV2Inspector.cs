@@ -69,7 +69,7 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapMainColorStrength;
         MaterialProperty _CustomMatcapMaskTex;
 
-        // -- Normal Map 3rd --
+        // -- Normal Map 3rd / 4th --
         MaterialProperty _CustomNormal3rdUIEnabled;
         MaterialProperty _CustomNormal3rdEnabled;
         MaterialProperty _CustomNormal3rdTex;
@@ -78,6 +78,14 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomNormal3rdTex_ScrollRotate;
         MaterialProperty _CustomNormal3rdDistanceFade;
         MaterialProperty _CustomNormal3rdMaskTex;
+        MaterialProperty _CustomNormal4thUIEnabled;
+        MaterialProperty _CustomNormal4thEnabled;
+        MaterialProperty _CustomNormal4thTex;
+        MaterialProperty _CustomNormal4thStrength;
+        MaterialProperty _CustomNormal4thTex_UVMode;
+        MaterialProperty _CustomNormal4thTex_ScrollRotate;
+        MaterialProperty _CustomNormal4thDistanceFade;
+        MaterialProperty _CustomNormal4thMaskTex;
 
         // -- Rim Light 2nd --
         MaterialProperty _CustomRim2ndUIEnabled;
@@ -118,6 +126,7 @@ namespace Dennokoworks.SpecularExV2
         static bool _foldRefl3rd;
         static bool _foldMatcap;
         static bool _foldNormal3rd;
+        static bool _foldNormal4th;
         static bool _foldRim2nd;
         static bool _foldRim3rd;
         static bool _foldPacking;
@@ -205,6 +214,14 @@ namespace Dennokoworks.SpecularExV2
             _CustomNormal3rdTex_ScrollRotate = FindProperty("_CustomNormal3rdTex_ScrollRotate", props, false);
             _CustomNormal3rdDistanceFade = FindProperty("_CustomNormal3rdDistanceFade", props, false);
             _CustomNormal3rdMaskTex          = FindProperty("_CustomNormal3rdMaskTex",          props, false);
+            _CustomNormal4thUIEnabled        = FindProperty("_CustomNormal4thUIEnabled",        props, false);
+            _CustomNormal4thEnabled          = FindProperty("_CustomNormal4thEnabled",          props, false);
+            _CustomNormal4thTex              = FindProperty("_CustomNormal4thTex",              props, false);
+            _CustomNormal4thStrength         = FindProperty("_CustomNormal4thStrength",         props, false);
+            _CustomNormal4thTex_UVMode       = FindProperty("_CustomNormal4thTex_UVMode",       props, false);
+            _CustomNormal4thTex_ScrollRotate = FindProperty("_CustomNormal4thTex_ScrollRotate", props, false);
+            _CustomNormal4thDistanceFade = FindProperty("_CustomNormal4thDistanceFade", props, false);
+            _CustomNormal4thMaskTex          = FindProperty("_CustomNormal4thMaskTex",          props, false);
 
             _CustomRim2ndUIEnabled           = FindProperty("_CustomRim2ndUIEnabled",           props, false);
             _CustomRim2ndEnabled             = FindProperty("_CustomRim2ndEnabled",             props, false);
@@ -246,6 +263,7 @@ namespace Dennokoworks.SpecularExV2
                 MigrateLegacyUIProperty(material, "_CustomRefl3rdEnabled",   "_CustomRefl3rdUIEnabled",   _CustomRefl3rdUIEnabled);
                 MigrateLegacyUIProperty(material, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    _CustomMatcapUIEnabled);
                 MigrateLegacyUIProperty(material, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", _CustomNormal3rdUIEnabled);
+                MigrateLegacyUIProperty(material, "_CustomNormal4thEnabled", "_CustomNormal4thUIEnabled", _CustomNormal4thUIEnabled);
                 MigrateLegacyUIProperty(material, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    _CustomRim2ndUIEnabled);
                 MigrateLegacyUIProperty(material, "_CustomRim3rdEnabled",    "_CustomRim3rdUIEnabled",    _CustomRim3rdUIEnabled);
             }
@@ -274,6 +292,7 @@ namespace Dennokoworks.SpecularExV2
             DrawRefl3rd();
             DrawMatcap();
             DrawNormal3rd();
+            DrawNormal4th();
             DrawRim2nd();
             DrawRim3rd();
             DrawPackingStatus();
@@ -302,6 +321,7 @@ namespace Dennokoworks.SpecularExV2
                 SyncEffectiveEnabled(m, "_CustomRefl3rdEnabled",   "_CustomRefl3rdUIEnabled",   null);
                 SyncEffectiveEnabled(m, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    "_CustomMatcapFrontTex");
                 SyncEffectiveEnabled(m, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", "_CustomNormal3rdTex");
+                SyncEffectiveEnabled(m, "_CustomNormal4thEnabled", "_CustomNormal4thUIEnabled", "_CustomNormal4thTex");
                 SyncEffectiveEnabled(m, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    null);
                 SyncEffectiveEnabled(m, "_CustomRim3rdEnabled",    "_CustomRim3rdUIEnabled",    null);
             }
@@ -310,6 +330,7 @@ namespace Dennokoworks.SpecularExV2
             SyncPropertyEffective(_CustomRefl3rdEnabled,   _CustomRefl3rdUIEnabled,   null);
             SyncPropertyEffective(_CustomMatcapEnabled,    _CustomMatcapUIEnabled,    _CustomMatcapFrontTex);
             SyncPropertyEffective(_CustomNormal3rdEnabled, _CustomNormal3rdUIEnabled, _CustomNormal3rdTex);
+            SyncPropertyEffective(_CustomNormal4thEnabled, _CustomNormal4thUIEnabled, _CustomNormal4thTex);
             SyncPropertyEffective(_CustomRim2ndEnabled,    _CustomRim2ndUIEnabled,    null);
             SyncPropertyEffective(_CustomRim3rdEnabled,    _CustomRim3rdUIEnabled,    null);
         }
@@ -708,41 +729,59 @@ namespace Dennokoworks.SpecularExV2
             EditorGUILayout.EndVertical();
         }
 
-        // -- Normal Map 3rd --
+        // -- Normal Map 3rd / 4th --
         void DrawNormal3rd()
         {
-            _foldNormal3rd = Foldout(Loc("foldout_normal3rd"), _foldNormal3rd);
+            _foldNormal3rd = DrawNormalLayer(_foldNormal3rd, "normal3rd",
+                _CustomNormal3rdUIEnabled, _CustomNormal3rdEnabled, _CustomNormal3rdTex, _CustomNormal3rdStrength,
+                _CustomNormal3rdTex_UVMode, _CustomNormal3rdTex_ScrollRotate, _CustomNormal3rdDistanceFade, _CustomNormal3rdMaskTex);
+        }
+
+        void DrawNormal4th()
+        {
+            _foldNormal4th = DrawNormalLayer(_foldNormal4th, "normal4th",
+                _CustomNormal4thUIEnabled, _CustomNormal4thEnabled, _CustomNormal4thTex, _CustomNormal4thStrength,
+                _CustomNormal4thTex_UVMode, _CustomNormal4thTex_ScrollRotate, _CustomNormal4thDistanceFade, _CustomNormal4thMaskTex);
+        }
+
+        // Both layers share one layout; `key` selects the foldout/toggle labels (foldout_<key>, toggle_<key>).
+        bool DrawNormalLayer(bool fold, string key,
+            MaterialProperty uiEnabled, MaterialProperty enabled, MaterialProperty tex, MaterialProperty strength,
+            MaterialProperty uvMode, MaterialProperty scrollRotate, MaterialProperty distanceFade, MaterialProperty mask)
+        {
+            fold = Foldout(Loc("foldout_" + key), fold);
             DrawSectionMenu(new[] {
-                _CustomNormal3rdUIEnabled,         _CustomNormal3rdEnabled,
-                _CustomNormal3rdTex,               _CustomNormal3rdStrength,
-                _CustomNormal3rdTex_UVMode,        _CustomNormal3rdMaskTex,
-                _CustomNormal3rdTex_ScrollRotate,  _CustomNormal3rdDistanceFade,
+                uiEnabled,     enabled,
+                tex,           strength,
+                uvMode,        mask,
+                scrollRotate,  distanceFade,
             });
-            if (!_foldNormal3rd) return;
+            if (!fold) return fold;
 
             EditorGUILayout.BeginVertical(boxOuter);
-            DrawToggle(_CustomNormal3rdUIEnabled, _CustomNormal3rdEnabled, _CustomNormal3rdTex, Loc("toggle_normal3rd"));
-            if (IsOn(_CustomNormal3rdUIEnabled))
+            DrawToggle(uiEnabled, enabled, tex, Loc("toggle_" + key));
+            if (IsOn(uiEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
-                Prop(_CustomNormal3rdTex, Loc("label_normal_map"));
-                if (_CustomNormal3rdTex != null && _CustomNormal3rdTex.textureValue == null && !_CustomNormal3rdTex.hasMixedValue)
-                    EditorGUILayout.HelpBox(Loc("help_normal3rd_missing"), MessageType.Info);
-                Prop(_CustomNormal3rdStrength, Loc("label_strength"));
-                PopupProp(_CustomNormal3rdTex_UVMode, Loc("label_uv_mode"), new[] { Loc("uv0"), Loc("uv1"), Loc("uv2"), Loc("uv3") });
+                Prop(tex, Loc("label_normal_map"));
+                if (tex != null && tex.textureValue == null && !tex.hasMixedValue)
+                    EditorGUILayout.HelpBox(Loc("help_normal_missing"), MessageType.Info);
+                Prop(strength, Loc("label_strength"));
+                PopupProp(uvMode, Loc("label_uv_mode"), new[] { Loc("uv0"), Loc("uv1"), Loc("uv2"), Loc("uv3") });
                 // Angle and rotation speed are stored in radians (lilToon ScrollRotate layout), shown in degrees.
-                Vec2Prop(_CustomNormal3rdTex_ScrollRotate, Loc("label_uv_scroll"));
-                VecFloat(_CustomNormal3rdTex_ScrollRotate, 2, Loc("label_uv_angle"),        Mathf.Rad2Deg);
-                VecFloat(_CustomNormal3rdTex_ScrollRotate, 3, Loc("label_uv_rotate_speed"), Mathf.Rad2Deg);
+                Vec2Prop(scrollRotate, Loc("label_uv_scroll"));
+                VecFloat(scrollRotate, 2, Loc("label_uv_angle"),        Mathf.Rad2Deg);
+                VecFloat(scrollRotate, 3, Loc("label_uv_rotate_speed"), Mathf.Rad2Deg);
                 lilEditorGUI.DrawLine();
-                VecFloat(_CustomNormal3rdDistanceFade,  0, Loc("label_distance_fade_start"));
-                VecFloat(_CustomNormal3rdDistanceFade,  1, Loc("label_distance_fade_end"));
-                VecSlider(_CustomNormal3rdDistanceFade, 2, Loc("label_distance_fade_strength"), 0f, 1f);
+                VecFloat(distanceFade,  0, Loc("label_distance_fade_start"));
+                VecFloat(distanceFade,  1, Loc("label_distance_fade_end"));
+                VecSlider(distanceFade, 2, Loc("label_distance_fade_strength"), 0f, 1f);
                 lilEditorGUI.DrawLine();
-                Prop(_CustomNormal3rdMaskTex, Loc("label_mask"));
+                Prop(mask, Loc("label_mask"));
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
+            return fold;
         }
 
         // -- Rim Light 2nd --
