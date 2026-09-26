@@ -19,7 +19,7 @@
 | スペキュラー 2nd/3rd | フレネル強度 | §1.3 |
 | MatCap | 空間モード View / World / Object | §2.1 |
 | MatCap | 1枚テクスチャ化（Back テクスチャ廃止・左右分割レイアウト） | §2.2 |
-| MatCap | フレネル強度 | §2.3 |
+| MatCap | ~~フレネル強度~~（オミット） | §2.3 |
 | MatCap | HSV 調整・メインカラー乗算 | §2.4 |
 | ノーマル 3rd | 距離フェード | §3.1 |
 | ノーマル 3rd | UV スクロール・回転 | §3.2 |
@@ -183,6 +183,8 @@ float2 DNKW_MatcapUV(float3 dView, float3 dWorld, float t)
 
 ### 2.3 フレネル強度
 
+> **改訂:** 実装後に**オミット**した（`_CustomMatcapFresnelStrength` / `_CustomMatcapFresnelPower` を削除）。
+
 | プロパティ | 型 / 範囲 | 既定値 |
 |---|---|---|
 | `_CustomMatcapFresnelStrength` | Range(0, 1) | 0 |
@@ -313,7 +315,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 ### 5.2 インスペクター配置
 
 - **スペキュラー**: 色・強度 ／ タイプ・滑らかさ・金属度・反射率（クリアコート ON 時は金属度と反射率を隠す）・クリアコート ／ フレネル強度・鋭さ ／ **ライティング**（ライティング反映・フェイクライトのブレンドと方向）／ 法線・影・メインカラー・ForwardAdd ／ マスク
-- **MatCap**: 空間モード・テクスチャ・レイアウト（World/Object のときだけ表示）／ 色・強度・ブレンド・HSV・メインカラー ／ ぼかし・回転・法線・フレネル ／ ライティング・影・裏面 ／ マスク
+- **MatCap**: 空間モード・テクスチャ・レイアウト（World/Object のときだけ表示）／ 色・強度・ブレンド・HSV・メインカラー ／ ぼかし・回転・法線 ／ ライティング・影・裏面 ／ マスク
 - **ノーマル 3rd**: ノーマルマップ・強度・UV・スクロール／回転 ／ 距離フェード ／ マスク
 - **リム 2nd**: 色・強度・ブレンド・ライティング反映 ／ Power・境界・ぼかし ／ 上下制限・逆光 ／ 法線・影・メインカラー ／ マスク
 
@@ -344,7 +346,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
   - [x] ローカライズ: インスペクターが参照するキーが ja-JP / en-US の両方に存在することを確認
   - [x] 既定値での互換性（コードレビュー）: 新しいプロパティはすべて、既定値で従来と同じ計算になる（例外は意図した変更であるリム 2nd のライティング反映のみ）
     - スペキュラー: `FakeLightBlend=0` で `fd.L`、`EnableLighting=1` で `fd.lightColor`、`FresnelStrength=0` で ×1、`ClearCoat=0`
-    - MatCap: HSVG は既定値で処理を省略、`MainColorStrength=0`・`FresnelStrength=0` で ×1、`Layout=0` は旧「Back 未設定」時と同一
+    - MatCap: HSVG は既定値で処理を省略、`MainColorStrength=0` で ×1、`Layout=0` は旧「Back 未設定」時と同一
     - ノーマル 3rd: `ScrollRotate=0` で `lilCalcUV` は従来の `uv*ST.xy+ST.zw` と同一、`DistanceFade.z=0` で ×1
     - リム 2nd: `Border=0.5` で従来の定数と同一、`VerticalBias=0`・`Backlight=0` で ×1
 

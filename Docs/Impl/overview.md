@@ -106,7 +106,6 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - ライティング反映 (`_CustomMatcapEnableLighting`)
   - 影マスク反映 (`_CustomMatcapShadowStrength`)
   - ポリゴン裏面無効化 (`_CustomMatcapDisableBackface`)
-  - フレネル強度 / 鋭さ (`_CustomMatcapFresnelStrength` / `_CustomMatcapFresnelPower`): 斜めから見たときほど不透明度を上げる
   - HSVG 調整 (`_CustomMatcapHSVG`: 色相, 彩度, 明度, ガンマ。`lilToneCorrection`、既定値では処理を省略)
   - メインカラー乗算度 (`_CustomMatcapMainColorStrength`)
   - 適用マスク (`_CustomMatcapMaskTex`): ※エディタで自動パック（Aチャンネル）
@@ -299,7 +298,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 `SpecularExV2Inspector`（`lilToonInspector` 派生）を実装し、以下の構成で lilToon の UI に自然に統合します。
 
 1. **追加スペキュラー (Specular 2nd / 3rd)**: 有効化、色、強度 ／ タイプ、スムースネス、クリアコート (ON 時はメタリック・反射率を隠す)、フレネル ／ ライティング反映、光源方向の補正 ／ 法線強度、影減衰、メインカラー反映、ForwardAdd適用 ／ マスク
-2. **追加 MatCap**: 有効化、テクスチャ、ワールド固定 ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転 (ワールド固定 > 0 のとき)、法線強度、フレネル ／ ライティング/影反映、裏面 ／ マスク
+2. **追加 MatCap**: 有効化、テクスチャ、ワールド固定 ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転 (ワールド固定 > 0 のとき)、法線強度 ／ ライティング/影反映、裏面 ／ マスク
 3. **追加ノーマル (Normal Map 3rd)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
 4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、ブレンドモード、ライティング反映 ／ Power、境界、ぼかし ／ 上下制限、逆光ブースト ／ 法線強度、影減衰、メインカラー反映 ／ マスク
 5. **マスクパッキング状態 (Mask Packing Status)**: 自動パックの稼働状態、現在のフィンガープリント、手動強制再ベイクボタン

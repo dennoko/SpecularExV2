@@ -65,8 +65,6 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapEnableLighting;
         MaterialProperty _CustomMatcapShadowStrength;
         MaterialProperty _CustomMatcapDisableBackface;
-        MaterialProperty _CustomMatcapFresnelStrength;
-        MaterialProperty _CustomMatcapFresnelPower;
         MaterialProperty _CustomMatcapHSVG;
         MaterialProperty _CustomMatcapMainColorStrength;
         MaterialProperty _CustomMatcapMaskTex;
@@ -195,8 +193,6 @@ namespace Dennokoworks.SpecularExV2
             _CustomMatcapEnableLighting      = FindProperty("_CustomMatcapEnableLighting",      props, false);
             _CustomMatcapShadowStrength      = FindProperty("_CustomMatcapShadowStrength",      props, false);
             _CustomMatcapDisableBackface     = FindProperty("_CustomMatcapDisableBackface",     props, false);
-            _CustomMatcapFresnelStrength = FindProperty("_CustomMatcapFresnelStrength", props, false);
-            _CustomMatcapFresnelPower = FindProperty("_CustomMatcapFresnelPower", props, false);
             _CustomMatcapHSVG = FindProperty("_CustomMatcapHSVG", props, false);
             _CustomMatcapMainColorStrength = FindProperty("_CustomMatcapMainColorStrength", props, false);
             _CustomMatcapMaskTex             = FindProperty("_CustomMatcapMaskTex",             props, false);
@@ -673,7 +669,6 @@ namespace Dennokoworks.SpecularExV2
                 _CustomMatcapWorldFixed,        _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
                 _CustomMatcapEnableLighting,    _CustomMatcapShadowStrength,
                 _CustomMatcapDisableBackface,   _CustomMatcapMaskTex,
-                _CustomMatcapFresnelStrength,   _CustomMatcapFresnelPower,
                 _CustomMatcapHSVG,              _CustomMatcapMainColorStrength,
             });
             if (!_foldMatcap) return;
@@ -702,8 +697,6 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomMatcapBlur, Loc("label_blur"));
                 if (worldFixed) Prop(_CustomMatcapWorldRotation, Loc("label_world_rotation"));
                 Prop(_CustomMatcapNormalStrength, Loc("label_normal_strength"));
-                Prop(_CustomMatcapFresnelStrength, Loc("label_fresnel_strength"));
-                Prop(_CustomMatcapFresnelPower,    Loc("label_fresnel_power"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapEnableLighting,     Loc("label_enable_lighting"));
                 Prop(_CustomMatcapShadowStrength,     Loc("label_shadow_strength"));

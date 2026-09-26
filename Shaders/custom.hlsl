@@ -65,8 +65,6 @@
     float  _CustomMatcapEnableLighting; \
     float  _CustomMatcapShadowStrength; \
     float  _CustomMatcapDisableBackface; \
-    float  _CustomMatcapFresnelStrength; \
-    float  _CustomMatcapFresnelPower; \
     float4 _CustomMatcapHSVG; \
     float  _CustomMatcapMainColorStrength; \
     float  _CustomMatcapEnabled; \
@@ -234,7 +232,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // derivatives would produce a 1-pixel mip seam.
 // Blend modes use lilBlendColor: 0 = Normal, 1 = Add, 2 = Screen, 3 = Multiply.
 // The texture color goes through lilToneCorrection (HSVG, skipped at the neutral value) and can be
-// multiplied by the main color; the opacity can be weighted toward grazing angles (fresnel).
+// multiplied by the main color.
 #define BEFORE_RIMLIGHT \
     if (_CustomMatcapEnabled > 0.5) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
@@ -245,7 +243,6 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \
         float3 _wmCol = DNKW_MatcapLighting(_wmRGB, fd.lightColor, _CustomMatcapEnableLighting, _CustomMatcapBlendMode); \
         float  _wmA   = _wmTex.a * _CustomMatcapColor.a * _CustomMatcapAlpha * DNKW_SAMPLE_MASK(_CustomMatcapMaskTex_ST).a; \
-        _wmA *= DNKW_FresnelWeight(saturate(dot(_wmN, fd.V)), _CustomMatcapFresnelStrength, _CustomMatcapFresnelPower); \
         _wmA *= lerp(1.0, fd.shadowmix, _CustomMatcapShadowStrength); \
         _wmA  = (_CustomMatcapDisableBackface > 0.5 && fd.facing < 0.0) ? 0.0 : _wmA; \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _wmCol, _wmA, _CustomMatcapBlendMode); \
