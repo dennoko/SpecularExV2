@@ -23,6 +23,7 @@
 | MatCap | HSV 調整・メインカラー乗算 | §2.4 |
 | ノーマル 3rd | 距離フェード | §3.1 |
 | ノーマル 3rd | UV スクロール・回転 | §3.2 |
+| ノーマル 4th | 3rd と同じ構成の第4レイヤーを追加 | §3.3 |
 | リム 2nd | ライティング反映 | §4.1 |
 | リム 2nd | 上下方向の制限 | §4.2 |
 | リム 2nd | 逆光ブースト | §4.3 |
@@ -239,6 +240,24 @@ _n3UV = lilCalcUV(_n3UV, _CustomNormal3rdTex_ST, _CustomNormal3rdTex_ScrollRotat
 - マスク（パック済み .b）はスクロールさせない（マスクは固定した領域の指定として使う想定）。
 - インスペクターでは角度を度単位で表示し、ラジアンで保存する。lilToon の UV 設定 GUI（`lilEditorGUI` の UV 設定描画）が流用できれば流用する。できなければ自前で描画する。
 
+### 3.3 ノーマルマップ 4th（追加）
+
+3rd と同じ構成のレイヤーを追加し、3rd の結果の上に合成する。
+
+| プロパティ | 内容 |
+|---|---|
+| `_CustomNormal4thUIEnabled` / `_CustomNormal4thEnabled` | 有効化（テクスチャ未設定なら実効フラグは 0） |
+| `_CustomNormal4thTex` | ノーマルマップ（Tiling/Offset 対応） |
+| `_CustomNormal4thStrength` | Range(-2, 2) = 1 |
+| `_CustomNormal4thTex_UVMode` | UV0〜UV3 |
+| `_CustomNormal4thTex_ScrollRotate` | lilToon の ScrollRotate 形式 |
+| `_CustomNormal4thDistanceFade` | x = 開始 [m], y = 終了 [m], z = 強度 |
+| `_CustomNormal4thMaskTex` | マスク。**パックマスク2の B チャンネル**に格納（マスク用テクスチャは増えない） |
+
+- シェーダー: 3rd の処理を `DNKW_NORMAL_LAYER(tex, st, uvMode, scrollRotate, fade, strength, maskValue)` にまとめ、`BEFORE_AUDIOLINK` で 3rd → 4th の順に呼ぶ。法線の派生値の更新（`DNKW_REFRESH_NORMAL_DERIVED`）はどちらかが有効なときに1回だけ行う。fxc はトークン連結（`##`）で `3rd` を扱えないため、uniform は引数で渡す。
+- 負荷: テクスチャ宣言 +1（`_CustomNormal4thTex`）。4th 有効時のみサンプル +2（法線＋マスク）。サンプラーは共有のため増えない。
+- インスペクター: 3rd / 4th を共通の `DrawNormalLayer` で描画する。未設定時のヘルプは共通キー `help_normal_missing`（旧 `help_normal3rd_missing`）。
+
 ---
 
 ## 4. リムライト 2nd
@@ -335,6 +354,9 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 - [x] **Phase E: MatCap のレイアウト・Object 廃止とワールド固定ブレンド**（§2.5）
   - シェーダー、プロパティ、インスペクター、ローカライズ、ビルドフック、ドキュメント
   - fxc 全バリアントと Roslyn（Editor / VRCSDK.Editor）のコンパイルを再確認
+- [x] **Phase F: ノーマルマップ 4th の追加**（§3.3）
+  - シェーダー、プロパティ、マスクパッカー（Pack 2 B）、インスペクター、ローカライズ、ドキュメント
+  - fxc 全 32 バリアント、テクスチャ宣言数 5（リフレクションで確認）、Roslyn（Editor / VRCSDK.Editor）
 - [ ] **Phase D: 検証**（自動検証は完了。Unity 上の目視確認が残っている）
 
   **自動検証（完了）**
@@ -357,6 +379,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
   - [ ] MatCap ワールド固定: 0 / 1 が従来のビュー / ワールド固定と一致すること、0.3〜0.7 でハイライトが二重にならず自然に追従すること、R.z = 0 付近で継ぎ目が出ないこと（ぼかし 0 / 5 / 10）
   - [ ] 旧マテリアル: 空間モード 2（Object）のマテリアルがワールド固定として描画されること、アニメーションクリップ内の `_CustomMatcapWorldFixed` の互換
   - [ ] ノーマル 3rd: 距離フェードの境界、スクロール時にマスクが固定されていること
+  - [ ] ノーマル 4th: 3rd の上に合成されること、4th だけ有効でも動作すること、4th のマスク（Pack 2 B）が反映されること
   - [ ] リム: 暗所でリムが浮かないこと（ライティング反映）、逆光ブーストで飽和しないこと
   - [ ] VRChat の Build & Publish（Cutout / Transparent で消えないこと）
 
@@ -365,4 +388,4 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 | 項目 | テクスチャ宣言 | サンプル数（最大） | ALU |
 |---|---|---|---|
 | 現状 | 5（パックマスク2枚を含む） | MatCap 2 | — |
-| 拡張後 | **4**（パックマスク2枚を含む） | MatCap 1 | 各機能 +10〜30 命令程度。機能 OFF 時は既存の Enabled 分岐でスキップ |
+| 拡張後 | **5**（パックマスク2枚・ノーマル 4th を含む） | MatCap 1、ノーマル 4th 有効時 +2 | 各機能 +10〜30 命令程度。機能 OFF 時は既存の Enabled 分岐でスキップ |

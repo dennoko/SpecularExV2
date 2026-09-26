@@ -19,7 +19,7 @@ v1（[v1 仕様・リファレンス](ref/v1.md)）では、2層スペキュラ�
 
 1. **追加スペキュラー (Specular 2nd)**: lilToon リアルモード準拠の反射ロジック＋ForwardAdd（追加ライト）完全対応
 2. **ワールド固定 MatCap (World-Oriented Dual-Hemisphere Matcap)**: 視点回転に追従せずワールド空間の反射を表現するデュアル半球MatCap（疑似Cubemap）
-3. **追加ノーマル (Normal Map 3rd)**: 標準スロットを上書きせず高品質に加算合成する第3の法線マップ
+3. **追加ノーマル (Normal Map 3rd / 4th)**: 標準スロットを上書きせず高品質に加算合成する第3・第4の法線マップ
 4. **追加リムライト (Rim Light 2nd)**: 光源方向依存を排除した軽量設計＋4種のブレンドモード対応
 5. **追加リムライト (Rim Light 3rd)**: Rim Light 2nd と同等の完全な第3のリムライト層
 
@@ -112,15 +112,15 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
 
 ---
 
-### 2.3 追加ノーマルマップ (Normal Map 3rd)
-lilToon 本体の Normal 1st（`_BumpMap`）および Normal 2nd（`_Bump2ndMap`）を上書き・破壊せず、その上にレイヤーとして加算合成（Compositing）します。
+### 2.3 追加ノーマルマップ (Normal Map 3rd / 4th)
+lilToon 本体の Normal 1st（`_BumpMap`）および Normal 2nd（`_Bump2ndMap`）を上書き・破壊せず、その上にレイヤーとして加算合成（Compositing）します。3rd → 4th の順に重ね、4th は 3rd の結果の上に合成します。両者は同じ構成で、シェーダーでは共通のマクロ `DNKW_NORMAL_LAYER` で処理します。
 
 - **合成計算ロジック**:
   - タンジェント空間において、lilToon の標準関数 `lilUnpackNormalScale` および `lilBlendNormal`（Whiteout Blend 方式）を使用。
-  - 既存の法線結果 `mul(fd.TBN, fd.N)` と追加ノーマル `_CustomNormal3rdTex` をブレンド。
+  - 既存の法線結果 `mul(fd.TBN, fd.N)` と追加ノーマル（`_CustomNormal3rdTex`、続いて `_CustomNormal4thTex`）をブレンド。
   - 合成後の法線をワールド空間へ戻し、正規化: `fd.N = normalize(mul(nBlend, fd.TBN))`。
 - **派生値のリフレッシュ**:
-  - `fd.N` が更新された後、lilToon が法線から算出している以下の派生値を全て再計算（リフレッシュ）し、後続のライティングやシェーディングに正しく伝播させる。
+  - `fd.N` が更新された後（3rd / 4th の両方を合成した後に1回だけ）、lilToon が法線から算出している以下の派生値を全て再計算（リフレッシュ）し、後続のライティングやシェーディングに正しく伝播させる。
     - `fd.reflectionN = fd.N`
     - `fd.matcapN = fd.N`
     - `fd.uvMat = mul(fd.cameraMatrix, fd.N).xy * 0.5 + 0.5`
@@ -134,7 +134,8 @@ lilToon 本体の Normal 1st（`_BumpMap`）および Normal 2nd（`_Bump2ndMap`
   - UV 選択モード (`_CustomNormal3rdTex_UVMode`: UV0, UV1, UV2, UV3)
   - UV スクロール / 回転 (`_CustomNormal3rdTex_ScrollRotate`: lilToon の ScrollRotate 形式、`lilCalcUV`。マスクは動かない)
   - 距離フェード (`_CustomNormal3rdDistanceFade`: x=開始[m], y=終了[m], z=強度。頭からの距離 `fd.depth` で強度を下げる)
-  - 適用マスク (`_CustomNormal3rdMaskTex`): ※エディタで自動パック（Bチャンネル）
+  - 適用マスク (`_CustomNormal3rdMaskTex`): ※エディタで自動パック（Pack 1 Bチャンネル）
+  - 4th も同じ構成（`_CustomNormal4th*`）。マスク `_CustomNormal4thMaskTex` は Pack 2 Bチャンネル
 
 ---
 
@@ -197,7 +198,7 @@ Rim Light 2nd と同等の完全な第3のリムライト層です。独立し�
   - 単一チャンネル（主に白黒マスク）として参照する4つのテクスチャを **1枚の RGBA テクスチャ（`_CustomMaskPacked`）** に統合する。
   - 各マスクは個別の Tiling/Offset（`_ST`）を持ち、シェーダー内では `_CustomMaskPacked` をそれぞれの UV でチャンネルサンプリングするため、機能制限（解像度やタイリングの自由度）は一切発生しない。
   - MatCap は前後半球とも1枚のテクスチャで賄う（後半球は鏡像）。
-  - 結果として、シェーダーが宣言するテクスチャは **4枚**: `_CustomMaskPacked`, `_CustomMaskPacked2`, `_CustomNormal3rdTex`, `_CustomMatcapFrontTex`（旧構成は `_CustomMatcapBackTex` を含む5枚）。
+  - 結果として、シェーダーが宣言するテクスチャは **5枚**: `_CustomMaskPacked`, `_CustomMaskPacked2`, `_CustomNormal3rdTex`, `_CustomNormal4thTex`, `_CustomMatcapFrontTex`。
 
 ### 3.2 パックドマスクのチャンネル割り当て
 **Pack 1 (`_CustomMaskPacked`)**
@@ -213,7 +214,7 @@ Rim Light 2nd と同等の完全な第3のリムライト層です。独立し�
 | :---: | :--- | :--- | :---: |
 | **R** | `_CustomRefl3rdMaskTex` | スペキュラー 3rd マスク | `1.0` (White) |
 | **G** | `_CustomRim3rdMaskTex` | リムライト 3rd マスク | `1.0` (White) |
-| **B** | 未使用 | 予備 | `1.0` (White) |
+| **B** | `_CustomNormal4thMaskTex` | ノーマルマップ 4th マスク | `1.0` (White) |
 | **A** | 未使用 | 予備 | `1.0` (White) |
 
 ### 3.3 エディタ側ライフサイクル（DennokoEx 方式準拠）
@@ -252,7 +253,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 ```
 [lilToon Normal 1st / 2nd 計算]
       ↓
-[BEFORE_AUDIOLINK] ───────→ ① 追加ノーマル (Normal Map 3rd) 合成
+[BEFORE_AUDIOLINK] ───────→ ① 追加ノーマル (Normal Map 3rd → 4th) 合成
                              ・lilBlendNormal によるタンジェント空間ブレンド
                              ・DNKW_REFRESH_NORMAL_DERIVED で派生ベクトルを更新
       ↓
@@ -279,7 +280,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 - **ForwardBase**: 全機能がフル動作（ディレクショナルライト・環境光・GI を反映）。
 - **ForwardAdd**:
   - 追加スペキュラー（Specular 2nd）が追加光源の方向・光色・減衰を反映して動作。
-  - Normal Map 3rd が追加ライトの陰影計算に寄与。
+  - Normal Map 3rd / 4th が追加ライトの陰影計算に寄与。
   - MatCap / リムライトは設定に応じて加算または無効化。
 - **ShadowCaster / Meta**: 不要な計算を自動バイパスし、描画パフォーマンスを維持。
 
@@ -299,7 +300,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 
 1. **追加スペキュラー (Specular 2nd / 3rd)**: 有効化、色、強度 ／ タイプ、スムースネス、クリアコート (ON 時はメタリック・反射率を隠す)、フレネル ／ ライティング反映、光源方向の補正 ／ 法線強度、影減衰、メインカラー反映、ForwardAdd適用 ／ マスク
 2. **追加 MatCap**: 有効化、テクスチャ、ワールド固定 ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転 (ワールド固定 > 0 のとき)、法線強度 ／ ライティング/影反映、裏面 ／ マスク
-3. **追加ノーマル (Normal Map 3rd)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
+3. **追加ノーマル (Normal Map 3rd / 4th、それぞれ独立したセクション)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
 4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、ブレンドモード、ライティング反映 ／ Power、境界、ぼかし ／ 上下制限、逆光ブースト ／ 法線強度、影減衰、メインカラー反映 ／ マスク
 5. **マスクパッキング状態 (Mask Packing Status)**: 自動パックの稼働状態、現在のフィンガープリント、手動強制再ベイクボタン
 
@@ -316,7 +317,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
   - `SpecularExPackedMaskWatcher.cs` による変更検知と自動ベイク
 - [x] **Phase 3: シェーダープロパティとフック（HLSL）の実装**
   - `lilCustomShaderProperties.lilblock` のプロパティ定義
-  - `custom.hlsl` への各機能ロジック実装（Normal 3rd, Specular 2nd, World Matcap, Rim 2nd）
+  - `custom.hlsl` への各機能ロジック実装（Normal 3rd / 4th, Specular 2nd, World Matcap, Rim 2nd）
   - ForwardAdd パス対応コード（`custom_insert.hlsl`）の実装
 - [x] **Phase 4: マテリアルインスペクター UI 実装**
   - `SpecularExV2Inspector.cs` の実装とローカライズ（日本語/英語）
