@@ -156,9 +156,11 @@
 // sample (uniform branch).
 #define DNKW_APPLY_NOISE(v, st, strength) if ((strength) > 0.0) (v) *= lerp(1.0, DNKW_SAMPLE_MASK2(st).a, (strength));
 
-// Rotates a world-space direction around the world Y axis (yaw), in degrees.
+// Rotates a world-space direction around the world Y axis (yaw), in degrees. 0 (the default) skips the
+// sincos.
 float3 DNKW_RotateYaw(float3 v, float degrees)
 {
+    if (degrees == 0.0) return v;
     float s, c;
     sincos(degrees * DNKW_DEG2RAD, s, c);
     return float3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c);
@@ -190,7 +192,8 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // 2 .b) scales the strength.
 // The map's UV scrolls/rotates via lilCalcUV (lilToon's ScrollRotate layout); the mask does not move.
 // Distance fade lowers the strength with the head distance fd.depth (set before this hook) to calm
-// moire/shimmering of fine detail far away. The texture is always sampled inside the layer (no dynamic
+// moire/shimmering of fine detail far away. The defaults (no scroll/rotation, fade strength 0) take the
+// plain tiling/offset UV and skip the fade (uniform branches). The texture is always sampled inside the layer (no dynamic
 // branch around an implicit-derivative sample; the enable flags are uniform).
 // The derived normals are refreshed once, after both layers. A layer at strength 0 is skipped (the
 // refresh still runs while the feature is enabled, so lilToon's derived normals behave the same).
@@ -200,10 +203,11 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         if (uvMode == 1) _nUV = fd.uv1; \
         if (uvMode == 2) _nUV = fd.uv2; \
         if (uvMode == 3) _nUV = fd.uv3; \
-        _nUV = lilCalcUV(_nUV, st, scrollRotate); \
+        if (any(scrollRotate != 0.0)) _nUV = lilCalcUV(_nUV, st, scrollRotate); \
+        else                          _nUV = lilCalcUV(_nUV, st); \
         float  _nMask  = (maskValue); \
         float4 _nFade  = fade; \
-        _nMask *= lerp(1.0, 1.0 - saturate((fd.depth - _nFade.x) / max(_nFade.y - _nFade.x, 1e-4)), _nFade.z); \
+        if (_nFade.z != 0.0) _nMask *= lerp(1.0, 1.0 - saturate((fd.depth - _nFade.x) / max(_nFade.y - _nFade.x, 1e-4)), _nFade.z); \
         float4 _nRaw   = LIL_SAMPLE_2D(tex, sampler_linear_repeat, _nUV); \
         float3 _nNTS   = lilUnpackNormalScale(_nRaw, strength * _nMask); \
         float3 _nCurTS = mul(fd.TBN, fd.N); \
@@ -266,6 +270,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //       (yaw), so the highlight stays fixed to the world while the camera or the avatar turns
 //   in between: the lookup directions are blended (DNKW_MatcapUV), so there is one highlight that lags
 //       behind the camera instead of two crossfaded ones.
+// At the endpoints only the direction that is used is built (0: no reflection/yaw, 1: no view transform).
 // Explicit-LOD sampling (Blur = mip level); the world side's uv folds at R.z = 0, where implicit
 // derivatives would produce a 1-pixel mip seam.
 // Blend modes use lilBlendColor: 0 = Normal, 1 = Add, 2 = Screen, 3 = Multiply.
@@ -275,8 +280,12 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 #define BEFORE_RIMLIGHT \
     if (_CustomMatcapEnabled > 0.5 && _CustomMatcapAlpha != 0.0 && _CustomMatcapColor.a != 0.0) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
-        float3 _wmR   = DNKW_RotateYaw(reflect(-fd.V, _wmN), _CustomMatcapWorldRotation); \
-        float2 _wmUV  = DNKW_MatcapUV(mul(fd.cameraMatrix, _wmN), _wmR, saturate(_CustomMatcapWorldFixed)); \
+        float  _wmT   = saturate(_CustomMatcapWorldFixed); \
+        float3 _wmDV  = 0.0; \
+        float3 _wmDW  = 0.0; \
+        if (_wmT < 1.0) _wmDV = mul(fd.cameraMatrix, _wmN); \
+        if (_wmT > 0.0) _wmDW = DNKW_RotateYaw(reflect(-fd.V, _wmN), _CustomMatcapWorldRotation); \
+        float2 _wmUV  = DNKW_MatcapUV(_wmDV, _wmDW, _wmT); \
         float4 _wmTex = LIL_SAMPLE_2D_LOD(_CustomMatcapFrontTex, lil_sampler_linear_clamp, _wmUV, _CustomMatcapBlur); \
         float3 _wmRGB = DNKW_ToneCorrection(_wmTex.rgb, _CustomMatcapHSVG); \
         _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \

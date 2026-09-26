@@ -49,9 +49,11 @@ float3 DNKW_SafeNormalize(float3 v, float3 fallback)
     return len2 > 1e-8 ? v * rsqrt(len2) : fallback;
 }
 
-// Grazing-angle weight: 1 at strength 0, pow(1 - N.V, power) at strength 1.
+// Grazing-angle weight: 1 at strength 0, pow(1 - N.V, power) at strength 1. The default strength 0 skips
+// the pow (uniform branch; the result is identical).
 float DNKW_FresnelWeight(float nv, float strength, float power)
 {
+    if (strength <= 0.0) return 1.0;
     return lerp(1.0, pow(1.0 - nv, power), strength);
 }
 
@@ -140,11 +142,18 @@ float3 DNKW_Refl2ndSpecular(float3 N, float3 V, float3 L, float smoothness, floa
 // Light direction for the highlight. ForwardBase: fd.L blended toward a camera-relative direction
 // (x = right, y = up, z = toward the viewer). headV (surface -> middle of both eyes) is the z axis, so
 // both VR eyes see the highlight at the same place. ForwardAdd lights are real, so they are never moved.
+// At the default blend 0 the camera-relative direction is not built: the result is normalize(L), which
+// only needs the fake direction as the fallback for a zero-length L.
 float3 DNKW_SpecularLightDir(float3 L, float3 cameraRight, float3 cameraUp, float3 headV, float blend, float3 dirCam)
 {
     #if defined(LIL_PASS_FORWARDADD)
         return L;
     #else
+        if (blend <= 0.0)
+        {
+            float len2 = dot(L, L);
+            if (len2 > 1e-8) return L * rsqrt(len2);
+        }
         float3 fakeL = DNKW_SafeNormalize(dirCam.x * cameraRight + dirCam.y * cameraUp + dirCam.z * headV, headV);
         return DNKW_SafeNormalize(lerp(L, fakeL, blend), fakeL);
     #endif
@@ -198,7 +207,8 @@ void DNKW_ApplySpecularLayer(inout lilFragData fd, float mask, float3 color, flo
 // mirrored across the Z plane (z folded to +), so one image covers both hemispheres continuously; the
 // view side is folded too so the two directions are never (near) opposite. In between, the highlight
 // follows the camera with a lag instead of sticking to the screen, while never leaving the image.
-// t = 0 and t = 1 reproduce the pure modes exactly.
+// t = 0 and t = 1 reproduce the pure modes exactly; there the unused direction may be passed as 0 (the
+// caller skips building it), since lerp(a, 0, 0) == a and lerp(0, b, 1) == b.
 float2 DNKW_MatcapUV(float3 dView, float3 dWorld, float t)
 {
     dView.z  = abs(dView.z);
