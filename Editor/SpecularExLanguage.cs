@@ -55,6 +55,13 @@ namespace Dennokoworks.SpecularExV2
             Refresh();
             return _table != null && _table.TryGetValue(key, out var v) ? v : key;
         }
+
+        public static string Format(string key, params object[] args)
+        {
+            var pattern = Get(key);
+            try { return string.Format(pattern, args); }
+            catch { return pattern; }
+        }
     }
 }
 #endif

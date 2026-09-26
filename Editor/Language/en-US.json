@@ -96,6 +96,12 @@
     "label_distance_fade_strength": "Distance Fade Strength",
     "label_border": "Border",
     "label_vertical_bias": "Rim Light Direction (+up / -down)",
-    "label_backlight": "Backlight Boost"
+    "label_backlight": "Backlight Boost",
 
+    "version_update_available": "Update available {0} ↗",
+    "version_update_tooltip": "Click to open download page",
+    "version_error": "Failed to check update",
+    "version_error_tooltip": "Click ↻ to recheck",
+    "version_checking": "Checking...",
+    "version_recheck_tooltip": "Recheck update"
 }

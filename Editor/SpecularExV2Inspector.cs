@@ -307,13 +307,84 @@ namespace Dennokoworks.SpecularExV2
             }
         }
 
+        private static GUIStyle _versionLinkStyle;
+
+        private void DrawVersionBar()
+        {
+            SpecularExVersion.StartCheckBackgroundTask();
+            var result = SpecularExVersion.LoadResultFromSessionState();
+
+            if (_versionLinkStyle == null)
+            {
+                _versionLinkStyle = new GUIStyle(EditorStyles.miniLabel);
+            }
+
+            var prevColor = GUI.contentColor;
+
+            EditorGUILayout.BeginHorizontal();
+
+            GUI.contentColor = new Color(0.68f, 0.68f, 0.68f);
+            GUILayout.Label($"SpecularExV2 v{result.LocalVersion}", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+            GUI.contentColor = prevColor;
+
+            switch (result.State)
+            {
+                case DennokoVersionChecker.State.UpdateAvailable:
+                {
+                    var tooltip = string.IsNullOrEmpty(result.Message)
+                        ? Loc("version_update_tooltip")
+                        : result.Message;
+
+                    GUI.contentColor = new Color(0.35f, 0.8f, 0.4f);
+                    var text = SpecularExLanguage.Format("version_update_available", result.LatestVersion);
+                    var clicked = GUILayout.Button(
+                        new GUIContent(text, tooltip),
+                        _versionLinkStyle, GUILayout.ExpandWidth(false));
+                    GUI.contentColor = prevColor;
+
+                    EditorGUIUtility.AddCursorRect(GUILayoutUtility.GetLastRect(), MouseCursor.Link);
+                    if (clicked)
+                    {
+                        SpecularExVersion.OpenUpdatePage(result.Url);
+                    }
+                    break;
+                }
+
+                case DennokoVersionChecker.State.Error:
+                    GUI.contentColor = new Color(1f, 0.72f, 0.3f);
+                    GUILayout.Label(
+                        new GUIContent(Loc("version_error"), Loc("version_error_tooltip")),
+                        EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+                    GUI.contentColor = prevColor;
+                    break;
+
+                case DennokoVersionChecker.State.Checking:
+                    GUI.contentColor = new Color(0.55f, 0.55f, 0.55f);
+                    GUILayout.Label(Loc("version_checking"), EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+                    GUI.contentColor = prevColor;
+                    break;
+
+                default:
+                    break;
+            }
+
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button(new GUIContent("↻", Loc("version_recheck_tooltip")), EditorStyles.miniButton, GUILayout.Width(22)))
+            {
+                SpecularExVersion.ForceRecheck();
+            }
+
+            EditorGUILayout.EndHorizontal();
+        }
+
         protected override void DrawCustomProperties(Material material)
         {
             // Keep the effective flags consistent before anything is drawn (covers materials edited
             // elsewhere, pasted values and Undo).
             SyncAllEffective();
 
-            EditorGUILayout.LabelField("SpecularExV2", EditorStyles.centeredGreyMiniLabel);
+            DrawVersionBar();
 
             DrawRefl2nd();
             DrawRefl3rd();

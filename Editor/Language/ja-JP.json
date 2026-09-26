@@ -96,6 +96,12 @@
     "label_distance_fade_strength": "距離フェード強度",
     "label_border": "境界",
     "label_vertical_bias": "リムライトの方向 +上 -下",
-    "label_backlight": "逆光ブースト"
+    "label_backlight": "逆光ブースト",
 
+    "version_update_available": "更新あり {0} ↗",
+    "version_update_tooltip": "クリックでダウンロードページを開きます",
+    "version_error": "最新版を取得できません",
+    "version_error_tooltip": "↻ ボタンで再確認できます",
+    "version_checking": "確認中...",
+    "version_recheck_tooltip": "アップデートを再確認"
 }
