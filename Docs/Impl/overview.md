@@ -234,7 +234,7 @@ Rim Light 2nd と同等の完全な第3のリムライト層です。独立し�
 1. **オーサリング UX の完全維持**:
    - マテリアルインスペクター上には、ユーザー向けに `_CustomRefl2ndMaskTex` 等の個別スロットをそのまま表示。
 2. **バックグラウンド自動ベイク**:
-   - `SpecularExMaskPacker`: GPU Blit（`MaskPacker.shader`）を用いて各テクスチャの R チャンネルを RGBA に結合し、PNG バイト列を生成。
+   - `SpecularExMaskPacker`: GPU Blit（`MaskPacker.shader`）を用いて各テクスチャの R チャンネルを RGBA に結合し、PNG バイト列を生成。幅・高さは入力の最大値をそれぞれ 2 の累乗に切り上げて決める（最大 2048）。
    - `SpecularExPackedMaskStore`: 入力テクスチャの GUID・更新日時・バージョンからフィンガープリントハッシュを計算し、`Assets/dennokoworks/SpecularExV2_Generated/PackedMasks/<hash>.png` として永続アセットを保存。
    - 自動インポート設定（Linear, sRGB=false, 圧縮・Mipmap 設定）を適用し、マテリアルの `_CustomMaskPacked` に自動代入。
 3. **アバタービルド時フック (`VRCSDK / BuildHook`)**:

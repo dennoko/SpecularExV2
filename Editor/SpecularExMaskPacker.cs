@@ -106,7 +106,8 @@ namespace Dennokoworks.SpecularExV2
 
         // Bump when the produced pixels change for identical inputs (shader, size rule, encoding),
         // so previously generated files are no longer considered up to date.
-        public const int Version = 1;
+        //   2: width and height are chosen separately (was: a square of the larger side).
+        public const int Version = 2;
 
         const string PackerShader = "Hidden/dennokoworks/SpecularExV2/MaskPacker";
         const int MaxSize = 2048;
@@ -161,14 +162,19 @@ namespace Dennokoworks.SpecularExV2
             }
 
             var slots = Packs[packIndex].slots;
-            int size = MinSize;
+            // Each axis is the largest input's, rounded up to a power of two: a 2048x256 strip no longer
+            // becomes a 2048x2048 square, and smaller masks are upscaled only as far as the larger ones need.
+            int width = MinSize, height = MinSize;
             for (int i = 0; i < slots.Length; i++)
             {
                 if (slots[i] == null) continue;
                 var t = GetSource(m, slots[i]);
-                if (t != null) size = Mathf.Max(size, Mathf.Max(t.width, t.height));
+                if (t == null) continue;
+                width  = Mathf.Max(width,  t.width);
+                height = Mathf.Max(height, t.height);
             }
-            size = Mathf.Clamp(Mathf.NextPowerOfTwo(size), MinSize, MaxSize);
+            width  = Mathf.Clamp(Mathf.NextPowerOfTwo(width),  MinSize, MaxSize);
+            height = Mathf.Clamp(Mathf.NextPowerOfTwo(height), MinSize, MaxSize);
 
             var mat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             // Unset -> Unity binds the shader's "white" default, the correct neutral mask value.
@@ -182,15 +188,15 @@ namespace Dennokoworks.SpecularExV2
                 }
             }
 
-            var rt = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            var rt = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
             var prevActive = RenderTexture.active;
             Texture2D tex = null;
             try
             {
                 Graphics.Blit(null, rt, mat);
                 RenderTexture.active = rt;
-                tex = new Texture2D(size, size, TextureFormat.RGBA32, /*mipChain*/ false, /*linear*/ true);
-                tex.ReadPixels(new Rect(0, 0, size, size), 0, 0, false);
+                tex = new Texture2D(width, height, TextureFormat.RGBA32, /*mipChain*/ false, /*linear*/ true);
+                tex.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
                 tex.Apply(false, false);
                 return tex.EncodeToPNG();
             }
