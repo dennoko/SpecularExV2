@@ -278,6 +278,33 @@ namespace Dennokoworks.SpecularExV2
             return states.Count > 0 ? PackState.UpToDate : PackState.NoMasks;
         }
 
+        // Instance IDs of every source slot and packed slot (0 = empty or missing). Two equal snapshots
+        // mean the material references the same textures, so a packed-mask check would reach the same
+        // result unless one of those textures was reimported or deleted.
+        public static int[] SlotSnapshot(Material m)
+        {
+            var sources = SpecularExMaskPacker.AllSourceProps;
+            var packs = SpecularExMaskPacker.Packs;
+            var ids = new int[sources.Length + packs.Length];
+            for (int i = 0; i < sources.Length; i++) ids[i] = TextureId(m, sources[i]);
+            for (int p = 0; p < packs.Length; p++) ids[sources.Length + p] = TextureId(m, packs[p].prop);
+            return ids;
+        }
+
+        public static bool SnapshotEquals(int[] a, int[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (a[i] != b[i]) return false;
+            return true;
+        }
+
+        static int TextureId(Material m, string prop)
+        {
+            var t = m.HasProperty(prop) ? m.GetTexture(prop) : null;
+            return t != null ? t.GetInstanceID() : 0;
+        }
+
         // Hash of everything the baked pixels depend on, or null if a slot texture is not a saved asset.
         // Deliberately not the material's own dependency hash: that includes the packed texture itself.
         //   depHashes: optional cache of AssetDatabase.GetAssetDependencyHash per source path.

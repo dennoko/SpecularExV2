@@ -20,7 +20,8 @@ namespace Dennokoworks.SpecularExV2
     //     renderers count, active or not. This also migrates materials from the old in-memory preview.
     //   * Inspector: whenever the drawn material's mask slot references differ from what was last
     //     checked (covers opening, editing, paste, Undo while inspected, switching to SpecularExV2).
-    //   * Material property changes published by the editor (edits from other windows, Undo).
+    //   * Material property changes published by the editor (edits from other windows, Undo), when
+    //     the slot references differ from the last check.
     //   * Imported material containers (.mat, .asset, models) that depend on a SpecularExV2 shader: every
     //     material inside is checked. Others are skipped without loading them.
     //   * Imported or deleted source textures: saved materials that depend on them, and in-memory
@@ -36,8 +37,8 @@ namespace Dennokoworks.SpecularExV2
         static bool _scanScenes;
         static bool _scheduled;
 
-        // Material instance ID -> hash of its slot texture references when last queued.
-        static readonly Dictionary<int, int> _slotState = new Dictionary<int, int>();
+        // Material instance ID -> its slot references (sources and packed) when last queued or checked.
+        static readonly Dictionary<int, int[]> _slotState = new Dictionary<int, int[]>();
 
         // Materials that are not assets (scene-embedded, created by scripts) and were checked before.
         // AssetDatabase searches cannot find them, so source texture changes are matched against this set.
@@ -91,18 +92,14 @@ namespace Dennokoworks.SpecularExV2
             Schedule();
         }
 
-        // Cheap enough for OnGUI: compares slot references only, queues when they changed.
+        // Cheap enough for OnGUI and per-frame change events: compares slot references only (sources
+        // and packed), queues when they changed. Changed source *contents* arrive as texture imports.
         public static void RequestIfSlotsChanged(Material m)
         {
             if (!SpecularExMaskPacker.HasPackedSlot(m)) return;
-            int state = 17;
-            for (int i = 0; i < SpecularExMaskPacker.SourceProps.Length; i++)
-            {
-                var t = SpecularExMaskPacker.GetSource(m, i);
-                state = state * 31 + (t != null ? t.GetInstanceID() : 0);
-            }
+            var state = SpecularExPackedMaskStore.SlotSnapshot(m);
             int id = m.GetInstanceID();
-            if (_slotState.TryGetValue(id, out var prev) && prev == state) return;
+            if (_slotState.TryGetValue(id, out var prev) && SpecularExPackedMaskStore.SnapshotEquals(prev, state)) return;
             _slotState[id] = state;
             Request(m);
         }
@@ -169,6 +166,12 @@ namespace Dennokoworks.SpecularExV2
 
             try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true); }
             catch (System.Exception e) { Debug.LogException(e); }
+
+            // The check may have assigned packed textures; record the result so the change events
+            // caused by our own SetTexture do not queue the same materials again.
+            foreach (var m in targets)
+                if (SpecularExMaskPacker.HasPackedSlot(m))
+                    _slotState[m.GetInstanceID()] = SpecularExPackedMaskStore.SlotSnapshot(m);
 
             if (timer != null)
             {
@@ -243,9 +246,11 @@ namespace Dennokoworks.SpecularExV2
                 {
                     case ObjectChangeKind.ChangeAssetObjectProperties:
                     {
+                        // Fired for every property edit (slider drags publish one per frame); only slot
+                        // reference changes matter.
                         stream.GetChangeAssetObjectPropertiesEvent(i, out var data);
-                        if (EditorUtility.InstanceIDToObject(data.instanceId) is Material m && SpecularExMaskPacker.HasPackedSlot(m))
-                            Request(m);
+                        if (EditorUtility.InstanceIDToObject(data.instanceId) is Material m)
+                            RequestIfSlotsChanged(m);
                         break;
                     }
                     case ObjectChangeKind.CreateGameObjectHierarchy:
@@ -258,10 +263,11 @@ namespace Dennokoworks.SpecularExV2
                     case ObjectChangeKind.ChangeGameObjectOrComponentProperties:
                     {
                         // Only Renderers matter (material swaps); ignore transforms etc. to stay cheap.
+                        // BlendShape drags publish one event per frame, so unchanged materials are skipped.
                         stream.GetChangeGameObjectOrComponentPropertiesEvent(i, out var data);
                         if (EditorUtility.InstanceIDToObject(data.instanceId) is Renderer r)
                             foreach (var m in r.sharedMaterials)
-                                if (SpecularExMaskPacker.HasPackedSlot(m)) Request(m);
+                                RequestIfSlotsChanged(m);
                         break;
                     }
                 }
@@ -272,7 +278,7 @@ namespace Dennokoworks.SpecularExV2
         {
             var list = new List<Material>();
             CollectRendererMaterials(root, list);
-            foreach (var m in list) Request(m);
+            foreach (var m in list) RequestIfSlotsChanged(m);
         }
 
         // Only the static OnPostprocessAllAssets callback. Do NOT add per-type callbacks such as
