@@ -37,6 +37,8 @@
     float  _CustomRefl2ndFresnelPower; \
     float  _CustomRefl2ndEnabled; \
     float4 _CustomRefl2ndMaskTex_ST; \
+    float  _CustomRefl2ndNoiseStrength; \
+    float4 _CustomRefl2ndNoiseST; \
     float4 _CustomRefl3rdColor; \
     float  _CustomRefl3rdStrength; \
     float  _CustomRefl3rdMode; \
@@ -55,6 +57,8 @@
     float  _CustomRefl3rdFresnelPower; \
     float  _CustomRefl3rdEnabled; \
     float4 _CustomRefl3rdMaskTex_ST; \
+    float  _CustomRefl3rdNoiseStrength; \
+    float4 _CustomRefl3rdNoiseST; \
     float4 _CustomMatcapColor; \
     float  _CustomMatcapAlpha; \
     float  _CustomMatcapBlendMode; \
@@ -69,6 +73,8 @@
     float  _CustomMatcapMainColorStrength; \
     float  _CustomMatcapEnabled; \
     float4 _CustomMatcapMaskTex_ST; \
+    float  _CustomMatcapNoiseStrength; \
+    float4 _CustomMatcapNoiseST; \
     float4 _CustomNormal3rdTex_ST; \
     float  _CustomNormal3rdStrength; \
     float  _CustomNormal3rdTex_UVMode; \
@@ -97,6 +103,8 @@
     float  _CustomRim2ndMainColorStrength; \
     float  _CustomRim2ndEnabled; \
     float4 _CustomRim2ndMaskTex_ST; \
+    float  _CustomRim2ndNoiseStrength; \
+    float4 _CustomRim2ndNoiseST; \
     float4 _CustomRim3rdColor; \
     float  _CustomRim3rdStrength; \
     float  _CustomRim3rdPower; \
@@ -110,7 +118,9 @@
     float  _CustomRim3rdShadowAttenuation; \
     float  _CustomRim3rdMainColorStrength; \
     float  _CustomRim3rdEnabled; \
-    float4 _CustomRim3rdMaskTex_ST;
+    float4 _CustomRim3rdMaskTex_ST; \
+    float  _CustomRim3rdNoiseStrength; \
+    float4 _CustomRim3rdNoiseST;
 
 // Custom textures
 // Two separate limits apply:
@@ -118,7 +128,7 @@
 //     lil_sampler_linear_clamp), so no SamplerState is declared here.
 //   * 64 TEXTURE PARAMETERS per shader: the single-channel masks are packed into RGBA textures:
 //       Packed 1: R = Specular 2nd   G = Rim Light 2nd   B = Normal Map 3rd   A = World MatCap
-//       Packed 2: R = Specular 3rd   G = Rim Light 3rd   B = Normal Map 4th
+//       Packed 2: R = Specular 3rd   G = Rim Light 3rd   B = Normal Map 4th   A = shared noise
 //     Each channel is still sampled with its own mask slot's tiling/offset, so nothing is lost.
 //     The matcap uses ONE texture (the back hemisphere is its mirror image).
 #define LIL_CUSTOM_TEXTURES \
@@ -139,6 +149,12 @@
 // Samples one channel-set of the packed mask with a mask slot's tiling/offset.
 #define DNKW_SAMPLE_MASK(st)  LIL_SAMPLE_2D(_CustomMaskPacked,  sampler_linear_repeat, fd.uv0 * (st).xy + (st).zw)
 #define DNKW_SAMPLE_MASK2(st) LIL_SAMPLE_2D(_CustomMaskPacked2, sampler_linear_repeat, fd.uv0 * (st).xy + (st).zw)
+
+// Shared noise mask (packed 2 .a): multiplies a layer's mask value `v` by lerp(1, noise, strength), sampled
+// with that layer's own tiling/offset `st` (xy = tiling, zw = offset), so each layer can use a different
+// grain from the one texture (e.g. breaking a highlight up into a rough surface). strength 0 skips the
+// sample (uniform branch).
+#define DNKW_APPLY_NOISE(v, st, strength) if ((strength) > 0.0) (v) *= lerp(1.0, DNKW_SAMPLE_MASK2(st).a, (strength));
 
 // Rotates a world-space direction around the world Y axis (yaw), in degrees.
 float3 DNKW_RotateYaw(float3 v, float degrees)
@@ -217,7 +233,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //   fresnel         - weights the highlight toward grazing angles
 #define BEFORE_REFLECTION \
     if (_CustomRefl2ndEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl2ndApplyFA)) { \
-        DNKW_ApplySpecularLayer(fd, DNKW_SAMPLE_MASK(_CustomRefl2ndMaskTex_ST).r, \
+        float _s2Mask = DNKW_SAMPLE_MASK(_CustomRefl2ndMaskTex_ST).r; \
+        DNKW_APPLY_NOISE(_s2Mask, _CustomRefl2ndNoiseST, _CustomRefl2ndNoiseStrength) \
+        DNKW_ApplySpecularLayer(fd, _s2Mask, \
             _CustomRefl2ndColor.rgb, _CustomRefl2ndStrength, _CustomRefl2ndMode, _CustomRefl2ndSmoothness, \
             _CustomRefl2ndMetallic, _CustomRefl2ndReflectance, _CustomRefl2ndNormalStrength, \
             _CustomRefl2ndShadowAttenuation, _CustomRefl2ndMainColorStrength, \
@@ -225,7 +243,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
             _CustomRefl2ndClearCoat, _CustomRefl2ndFresnelStrength, _CustomRefl2ndFresnelPower); \
     } \
     if (_CustomRefl3rdEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl3rdApplyFA)) { \
-        DNKW_ApplySpecularLayer(fd, DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r, \
+        float _s3Mask = DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r; \
+        DNKW_APPLY_NOISE(_s3Mask, _CustomRefl3rdNoiseST, _CustomRefl3rdNoiseStrength) \
+        DNKW_ApplySpecularLayer(fd, _s3Mask, \
             _CustomRefl3rdColor.rgb, _CustomRefl3rdStrength, _CustomRefl3rdMode, _CustomRefl3rdSmoothness, \
             _CustomRefl3rdMetallic, _CustomRefl3rdReflectance, _CustomRefl3rdNormalStrength, \
             _CustomRefl3rdShadowAttenuation, _CustomRefl3rdMainColorStrength, \
@@ -259,6 +279,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \
         float3 _wmCol = DNKW_MatcapLighting(_wmRGB, fd.lightColor, _CustomMatcapEnableLighting, _CustomMatcapBlendMode); \
         float  _wmA   = _wmTex.a * _CustomMatcapColor.a * _CustomMatcapAlpha * DNKW_SAMPLE_MASK(_CustomMatcapMaskTex_ST).a; \
+        DNKW_APPLY_NOISE(_wmA, _CustomMatcapNoiseST, _CustomMatcapNoiseStrength) \
         _wmA *= lerp(1.0, fd.shadowmix, _CustomMatcapShadowStrength); \
         _wmA  = (_CustomMatcapDisableBackface > 0.5 && fd.facing < 0.0) ? 0.0 : _wmA; \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _wmCol, _wmA, _CustomMatcapBlendMode); \
@@ -284,6 +305,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float  _r2Half  = _CustomRim2ndBlur * 0.5; \
         _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0, fwidth(_r2Val) + 1e-4)); \
         float  _r2Amt   = _r2Val * _CustomRim2ndStrength * _CustomRim2ndColor.a * DNKW_SAMPLE_MASK(_CustomRim2ndMaskTex_ST).g; \
+        DNKW_APPLY_NOISE(_r2Amt, _CustomRim2ndNoiseST, _CustomRim2ndNoiseStrength) \
         _r2Amt *= lerp(1.0, fd.shadowmix, _CustomRim2ndShadowAttenuation); \
         float  _r2Up    = (_CustomRim2ndVerticalBias >= 0.0 ? _r2N.y : -_r2N.y) * 0.5 + 0.5; \
         _r2Amt *= lerp(1.0, _r2Up, abs(_CustomRim2ndVerticalBias)); \
@@ -299,6 +321,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float  _r3Half  = _CustomRim3rdBlur * 0.5; \
         _r3Val = saturate((_r3Val - (_CustomRim3rdBorder - _r3Half)) / max(_r3Half * 2.0, fwidth(_r3Val) + 1e-4)); \
         float  _r3Amt   = _r3Val * _CustomRim3rdStrength * _CustomRim3rdColor.a * DNKW_SAMPLE_MASK2(_CustomRim3rdMaskTex_ST).g; \
+        DNKW_APPLY_NOISE(_r3Amt, _CustomRim3rdNoiseST, _CustomRim3rdNoiseStrength) \
         _r3Amt *= lerp(1.0, fd.shadowmix, _CustomRim3rdShadowAttenuation); \
         float  _r3Up    = (_CustomRim3rdVerticalBias >= 0.0 ? _r3N.y : -_r3N.y) * 0.5 + 0.5; \
         _r3Amt *= lerp(1.0, _r3Up, abs(_CustomRim3rdVerticalBias)); \

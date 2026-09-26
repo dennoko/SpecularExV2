@@ -1,5 +1,6 @@
         //----------------------------------------------------------------------------------------------------------------------
-        // Packed mask (1: R:Specular 2nd  G:Rim Light 2nd  B:Normal Map 3rd  A:World MatCap / 2: R:Specular 3rd  G:Rim Light 3rd).
+        // Packed mask (1: R:Specular 2nd  G:Rim Light 2nd  B:Normal Map 3rd  A:World MatCap /
+        //              2: R:Specular 3rd  G:Rim Light 3rd  B:Normal Map 4th  A:shared noise).
         // Baked in the editor from the individual *_MaskTex slots below (SpecularExPackedMaskStore) and
         // the ONLY mask texture the shader declares, which keeps the texture-parameter count far below
         // the GPU limit of 64 even in lilToon's all-features-on build.
@@ -8,6 +9,10 @@
 
         // The *_MaskTex slots are authoring-only (never declared in HLSL). Their _ST IS used: each channel
         // of _CustomMaskPacked is sampled with its own slot's tiling/offset.
+
+        // Shared noise mask (packed 2 .a), used by Specular 2nd/3rd, MatCap and Rim Light 2nd/3rd through their
+        // *NoiseStrength. Its own _ST is unused: each of those layers has its own *NoiseST (tiling xy, offset zw).
+        [NoScaleOffset] _CustomNoiseMaskTex ("Noise Mask", 2D) = "white" {}
 
         //----------------------------------------------------------------------------------------------------------------------
         // Specular 2nd
@@ -33,6 +38,8 @@
         _CustomRefl2ndFresnelStrength ("Specular 2nd Fresnel Strength", Range(0, 1)) = 0
         _CustomRefl2ndFresnelPower ("Specular 2nd Fresnel Power", Range(0.5, 10)) = 5
         _CustomRefl2ndMaskTex ("Specular 2nd Mask", 2D) = "white" {}
+        _CustomRefl2ndNoiseStrength ("Specular 2nd Noise Strength", Range(0, 1)) = 0
+        _CustomRefl2ndNoiseST ("Specular 2nd Noise Tiling Offset", Vector) = (1, 1, 0, 0)
 
         //----------------------------------------------------------------------------------------------------------------------
         // Specular 3rd
@@ -58,6 +65,8 @@
         _CustomRefl3rdFresnelStrength ("Specular 3rd Fresnel Strength", Range(0, 1)) = 0
         _CustomRefl3rdFresnelPower ("Specular 3rd Fresnel Power", Range(0.5, 10)) = 5
         _CustomRefl3rdMaskTex ("Specular 3rd Mask", 2D) = "white" {}
+        _CustomRefl3rdNoiseStrength ("Specular 3rd Noise Strength", Range(0, 1)) = 0
+        _CustomRefl3rdNoiseST ("Specular 3rd Noise Tiling Offset", Vector) = (1, 1, 0, 0)
 
         //----------------------------------------------------------------------------------------------------------------------
         // World-Oriented Dual-Hemisphere MatCap
@@ -82,6 +91,8 @@
         _CustomMatcapHSVG ("World MatCap HSVG", Vector) = (0, 1, 1, 1)
         _CustomMatcapMainColorStrength ("World MatCap Main Color Strength", Range(0, 1)) = 0
         _CustomMatcapMaskTex ("World MatCap Mask", 2D) = "white" {}
+        _CustomMatcapNoiseStrength ("World MatCap Noise Strength", Range(0, 1)) = 0
+        _CustomMatcapNoiseST ("World MatCap Noise Tiling Offset", Vector) = (1, 1, 0, 0)
 
         //----------------------------------------------------------------------------------------------------------------------
         // Normal Map 3rd
@@ -127,6 +138,8 @@
         _CustomRim2ndShadowAttenuation ("Rim Light 2nd Shadow Attenuation", Range(0, 1)) = 0
         _CustomRim2ndMainColorStrength ("Rim Light 2nd Main Color Strength", Range(0, 1)) = 0
         _CustomRim2ndMaskTex ("Rim Light 2nd Mask", 2D) = "white" {}
+        _CustomRim2ndNoiseStrength ("Rim Light 2nd Noise Strength", Range(0, 1)) = 0
+        _CustomRim2ndNoiseST ("Rim Light 2nd Noise Tiling Offset", Vector) = (1, 1, 0, 0)
 
         //----------------------------------------------------------------------------------------------------------------------
         // Rim Light 3rd
@@ -148,4 +161,6 @@
         _CustomRim3rdShadowAttenuation ("Rim Light 3rd Shadow Attenuation", Range(0, 1)) = 0
         _CustomRim3rdMainColorStrength ("Rim Light 3rd Main Color Strength", Range(0, 1)) = 0
         _CustomRim3rdMaskTex ("Rim Light 3rd Mask", 2D) = "white" {}
+        _CustomRim3rdNoiseStrength ("Rim Light 3rd Noise Strength", Range(0, 1)) = 0
+        _CustomRim3rdNoiseST ("Rim Light 3rd Noise Tiling Offset", Vector) = (1, 1, 0, 0)
 

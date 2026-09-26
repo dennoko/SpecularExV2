@@ -6,6 +6,7 @@
     "foldout_normal4th": "ノーマルマップ 4th",
     "foldout_rim2nd": "リムライト 2nd",
     "foldout_rim3rd": "リムライト 3rd",
+    "foldout_noise": "ノイズマスク（共通）",
     "foldout_packing": "マスクパッキング状態",
 
     "toggle_refl2nd": "スペキュラー 2ndを有効化",
@@ -29,6 +30,10 @@
     "label_main_color_strength": "メインカラーの強度",
     "label_apply_fa": "複数ライトから光沢を生成",
     "label_mask": "マスク",
+    "label_noise_texture": "ノイズテクスチャ",
+    "label_noise_strength": "ノイズ強度",
+    "label_noise_tiling": "ノイズのタイリング",
+    "label_noise_offset": "ノイズのオフセット",
 
     "help_matcap_front_missing": "テクスチャを設定すると有効になります。",
     "label_alpha": "不透明度",
@@ -67,7 +72,9 @@
     "pack_unsaved": "保存されていないテクスチャを含みます (ビルド時にベイクされます)",
     "label_fingerprint": "フィンガープリント",
     "label_packed_texture": "パック済みテクスチャ",
-    "help_packing": "マスクはRGBAテクスチャ (Pack 1: R=スペキュラー2nd G=リム2nd B=ノーマル3rd A=マットキャップ / Pack 2: R=スペキュラー3rd G=リム3rd B=ノーマル4th) に自動でパックされ、テクスチャ数の上限 (64) を回避します。",
+    "help_packing": "マスクはRGBAテクスチャ (Pack 1: R=スペキュラー2nd G=リム2nd B=ノーマル3rd A=マットキャップ / Pack 2: R=スペキュラー3rd G=リム3rd B=ノーマル4th A=共通ノイズ) に自動でパックされ、テクスチャ数の上限 (64) を回避します。",
+    "help_noise": "スペキュラー・マットキャップ・リムライトの「ノイズ強度」から共通で参照するマスクです（グレースケール / R チャンネルを使用）。タイリングとオフセットは各機能で個別に設定します。粗い表面のハイライトなどに使えます。",
+    "help_noise_missing": "「ノイズマスク（共通）」にテクスチャを設定すると有効になります。",
     "btn_rebuild_packed_mask": "パック済みマスクを再ベイク",
 
     "label_clear_coat": "クリアコート",

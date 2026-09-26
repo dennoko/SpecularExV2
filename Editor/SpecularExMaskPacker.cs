@@ -15,7 +15,7 @@ namespace Dennokoworks.SpecularExV2
     //   Pack 1: R = _CustomRefl2ndMaskTex    G = _CustomRim2ndMaskTex
     //           B = _CustomNormal3rdMaskTex  A = _CustomMatcapMaskTex
     //   Pack 2: R = _CustomRefl3rdMaskTex    G = _CustomRim3rdMaskTex
-    //           B = _CustomNormal4thMaskTex
+    //           B = _CustomNormal4thMaskTex  A = _CustomNoiseMaskTex (shared noise)
     public static class SpecularExMaskPacker
     {
         public const string ShaderNameRoot = "dennokoworks/SpecularExV2";
@@ -37,7 +37,7 @@ namespace Dennokoworks.SpecularExV2
             "_CustomRefl3rdMaskTex",   // R
             "_CustomRim3rdMaskTex",    // G
             "_CustomNormal4thMaskTex", // B
-            null,                      // A
+            "_CustomNoiseMaskTex",     // A (shared noise)
         };
 
         public struct PackDefinition
@@ -62,6 +62,7 @@ namespace Dennokoworks.SpecularExV2
             "_CustomRefl3rdMaskTex",
             "_CustomRim3rdMaskTex",
             "_CustomNormal4thMaskTex",
+            "_CustomNoiseMaskTex",
         };
 
         public static readonly string[] SourceProps = AllSourceProps;

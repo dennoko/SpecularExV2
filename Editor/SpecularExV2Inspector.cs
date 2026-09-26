@@ -29,6 +29,8 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRefl2ndFresnelStrength;
         MaterialProperty _CustomRefl2ndFresnelPower;
         MaterialProperty _CustomRefl2ndMaskTex;
+        MaterialProperty _CustomRefl2ndNoiseStrength;
+        MaterialProperty _CustomRefl2ndNoiseST;
 
         // -- Specular 3rd --
         MaterialProperty _CustomRefl3rdUIEnabled;
@@ -50,6 +52,8 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRefl3rdFresnelStrength;
         MaterialProperty _CustomRefl3rdFresnelPower;
         MaterialProperty _CustomRefl3rdMaskTex;
+        MaterialProperty _CustomRefl3rdNoiseStrength;
+        MaterialProperty _CustomRefl3rdNoiseST;
 
         // -- World MatCap --
         MaterialProperty _CustomMatcapUIEnabled;
@@ -68,6 +72,8 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapHSVG;
         MaterialProperty _CustomMatcapMainColorStrength;
         MaterialProperty _CustomMatcapMaskTex;
+        MaterialProperty _CustomMatcapNoiseStrength;
+        MaterialProperty _CustomMatcapNoiseST;
 
         // -- Normal Map 3rd / 4th --
         MaterialProperty _CustomNormal3rdUIEnabled;
@@ -103,6 +109,8 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRim2ndShadowAttenuation;
         MaterialProperty _CustomRim2ndMainColorStrength;
         MaterialProperty _CustomRim2ndMaskTex;
+        MaterialProperty _CustomRim2ndNoiseStrength;
+        MaterialProperty _CustomRim2ndNoiseST;
 
         // -- Rim Light 3rd --
         MaterialProperty _CustomRim3rdUIEnabled;
@@ -120,6 +128,11 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRim3rdShadowAttenuation;
         MaterialProperty _CustomRim3rdMainColorStrength;
         MaterialProperty _CustomRim3rdMaskTex;
+        MaterialProperty _CustomRim3rdNoiseStrength;
+        MaterialProperty _CustomRim3rdNoiseST;
+
+        // -- Shared noise mask --
+        MaterialProperty _CustomNoiseMaskTex;
 
         // Foldout states
         static bool _foldRefl2nd;
@@ -129,6 +142,7 @@ namespace Dennokoworks.SpecularExV2
         static bool _foldNormal4th;
         static bool _foldRim2nd;
         static bool _foldRim3rd;
+        static bool _foldNoise;
         static bool _foldPacking;
 
         // Copy/paste buffer
@@ -168,6 +182,8 @@ namespace Dennokoworks.SpecularExV2
             _CustomRefl2ndFresnelStrength = FindProperty("_CustomRefl2ndFresnelStrength", props, false);
             _CustomRefl2ndFresnelPower = FindProperty("_CustomRefl2ndFresnelPower", props, false);
             _CustomRefl2ndMaskTex            = FindProperty("_CustomRefl2ndMaskTex",            props, false);
+            _CustomRefl2ndNoiseStrength = FindProperty("_CustomRefl2ndNoiseStrength", props, false);
+            _CustomRefl2ndNoiseST       = FindProperty("_CustomRefl2ndNoiseST",       props, false);
 
             _CustomRefl3rdUIEnabled          = FindProperty("_CustomRefl3rdUIEnabled",          props, false);
             _CustomRefl3rdEnabled            = FindProperty("_CustomRefl3rdEnabled",            props, false);
@@ -188,6 +204,8 @@ namespace Dennokoworks.SpecularExV2
             _CustomRefl3rdFresnelStrength = FindProperty("_CustomRefl3rdFresnelStrength", props, false);
             _CustomRefl3rdFresnelPower = FindProperty("_CustomRefl3rdFresnelPower", props, false);
             _CustomRefl3rdMaskTex            = FindProperty("_CustomRefl3rdMaskTex",            props, false);
+            _CustomRefl3rdNoiseStrength = FindProperty("_CustomRefl3rdNoiseStrength", props, false);
+            _CustomRefl3rdNoiseST       = FindProperty("_CustomRefl3rdNoiseST",       props, false);
 
             _CustomMatcapUIEnabled           = FindProperty("_CustomMatcapUIEnabled",           props, false);
             _CustomMatcapEnabled             = FindProperty("_CustomMatcapEnabled",             props, false);
@@ -205,6 +223,8 @@ namespace Dennokoworks.SpecularExV2
             _CustomMatcapHSVG = FindProperty("_CustomMatcapHSVG", props, false);
             _CustomMatcapMainColorStrength = FindProperty("_CustomMatcapMainColorStrength", props, false);
             _CustomMatcapMaskTex             = FindProperty("_CustomMatcapMaskTex",             props, false);
+            _CustomMatcapNoiseStrength = FindProperty("_CustomMatcapNoiseStrength", props, false);
+            _CustomMatcapNoiseST       = FindProperty("_CustomMatcapNoiseST",       props, false);
 
             _CustomNormal3rdUIEnabled        = FindProperty("_CustomNormal3rdUIEnabled",        props, false);
             _CustomNormal3rdEnabled          = FindProperty("_CustomNormal3rdEnabled",          props, false);
@@ -238,6 +258,8 @@ namespace Dennokoworks.SpecularExV2
             _CustomRim2ndShadowAttenuation   = FindProperty("_CustomRim2ndShadowAttenuation",   props, false);
             _CustomRim2ndMainColorStrength   = FindProperty("_CustomRim2ndMainColorStrength",   props, false);
             _CustomRim2ndMaskTex             = FindProperty("_CustomRim2ndMaskTex",             props, false);
+            _CustomRim2ndNoiseStrength = FindProperty("_CustomRim2ndNoiseStrength", props, false);
+            _CustomRim2ndNoiseST       = FindProperty("_CustomRim2ndNoiseST",       props, false);
 
             _CustomRim3rdUIEnabled           = FindProperty("_CustomRim3rdUIEnabled",           props, false);
             _CustomRim3rdEnabled             = FindProperty("_CustomRim3rdEnabled",             props, false);
@@ -254,6 +276,9 @@ namespace Dennokoworks.SpecularExV2
             _CustomRim3rdShadowAttenuation   = FindProperty("_CustomRim3rdShadowAttenuation",   props, false);
             _CustomRim3rdMainColorStrength   = FindProperty("_CustomRim3rdMainColorStrength",   props, false);
             _CustomRim3rdMaskTex             = FindProperty("_CustomRim3rdMaskTex",             props, false);
+            _CustomNoiseMaskTex = FindProperty("_CustomNoiseMaskTex", props, false);
+            _CustomRim3rdNoiseStrength = FindProperty("_CustomRim3rdNoiseStrength", props, false);
+            _CustomRim3rdNoiseST       = FindProperty("_CustomRim3rdNoiseST",       props, false);
 
             // One-time legacy migration on initial material load: if an older material had Enabled=1
             // but UIEnabled=0, set UIEnabled=1 so the inspector displays it as active.
@@ -295,6 +320,7 @@ namespace Dennokoworks.SpecularExV2
             DrawNormal4th();
             DrawRim2nd();
             DrawRim3rd();
+            DrawNoiseMask();
             DrawPackingStatus();
 
             SyncAllEffective();
@@ -453,15 +479,27 @@ namespace Dennokoworks.SpecularExV2
         }
 
         // xy of a Vector property as one Vector2 field (UV scroll).
-        void Vec2Prop(MaterialProperty prop, string label)
+        void Vec2Prop(MaterialProperty prop, string label, int first = 0)
         {
             if (prop == null) return;
             EditorGUI.showMixedValue = prop.hasMixedValue;
             EditorGUI.BeginChangeCheck();
             Vector4 v = prop.vectorValue;
-            Vector2 f = EditorGUILayout.Vector2Field(label, new Vector2(v.x, v.y));
-            if (EditorGUI.EndChangeCheck()) { v.x = f.x; v.y = f.y; prop.vectorValue = v; }
+            Vector2 f = EditorGUILayout.Vector2Field(label, new Vector2(v[first], v[first + 1]));
+            if (EditorGUI.EndChangeCheck()) { v[first] = f.x; v[first + 1] = f.y; prop.vectorValue = v; }
             EditorGUI.showMixedValue = false;
+        }
+
+        // A layer's use of the shared noise mask: strength, then (only while used) its own tiling/offset.
+        void DrawNoise(MaterialProperty strength, MaterialProperty st)
+        {
+            if (strength == null) return;
+            Prop(strength, Loc("label_noise_strength"));
+            if (!strength.hasMixedValue && strength.floatValue <= 0f) return;
+            Vec2Prop(st, Loc("label_noise_tiling"), 0);
+            Vec2Prop(st, Loc("label_noise_offset"), 2);
+            if (_CustomNoiseMaskTex != null && _CustomNoiseMaskTex.textureValue == null && !_CustomNoiseMaskTex.hasMixedValue)
+                EditorGUILayout.HelpBox(Loc("help_noise_missing"), MessageType.Info);
         }
 
         // xyz of a Vector property as one Vector3 field (fake light direction).
@@ -586,7 +624,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRefl2ndFakeLightBlend,    _CustomRefl2ndFakeLightDir,
                 _CustomRefl2ndEnableLighting,
                 _CustomRefl2ndClearCoat,         _CustomRefl2ndFresnelStrength,
-                _CustomRefl2ndFresnelPower,      _CustomRefl2ndMaskTex,
+                _CustomRefl2ndFresnelPower,      _CustomRefl2ndMaskTex, _CustomRefl2ndNoiseStrength, _CustomRefl2ndNoiseST,
             });
             if (!_foldRefl2nd) return;
 
@@ -620,6 +658,7 @@ namespace Dennokoworks.SpecularExV2
                 BoolProp(_CustomRefl2ndApplyFA,       Loc("label_apply_fa"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRefl2ndMaskTex, Loc("label_mask"));
+                DrawNoise(_CustomRefl2ndNoiseStrength, _CustomRefl2ndNoiseST);
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
@@ -639,7 +678,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRefl3rdFakeLightBlend,    _CustomRefl3rdFakeLightDir,
                 _CustomRefl3rdEnableLighting,
                 _CustomRefl3rdClearCoat,         _CustomRefl3rdFresnelStrength,
-                _CustomRefl3rdFresnelPower,      _CustomRefl3rdMaskTex,
+                _CustomRefl3rdFresnelPower,      _CustomRefl3rdMaskTex, _CustomRefl3rdNoiseStrength, _CustomRefl3rdNoiseST,
             });
             if (!_foldRefl3rd) return;
 
@@ -673,6 +712,7 @@ namespace Dennokoworks.SpecularExV2
                 BoolProp(_CustomRefl3rdApplyFA,       Loc("label_apply_fa"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRefl3rdMaskTex, Loc("label_mask"));
+                DrawNoise(_CustomRefl3rdNoiseStrength, _CustomRefl3rdNoiseST);
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
@@ -689,7 +729,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomMatcapBlendMode,         _CustomMatcapBlur,
                 _CustomMatcapWorldFixed,        _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
                 _CustomMatcapEnableLighting,    _CustomMatcapShadowStrength,
-                _CustomMatcapDisableBackface,   _CustomMatcapMaskTex,
+                _CustomMatcapDisableBackface,   _CustomMatcapMaskTex, _CustomMatcapNoiseStrength, _CustomMatcapNoiseST,
                 _CustomMatcapHSVG,              _CustomMatcapMainColorStrength,
             });
             if (!_foldMatcap) return;
@@ -724,6 +764,7 @@ namespace Dennokoworks.SpecularExV2
                 BoolProp(_CustomMatcapDisableBackface, Loc("label_disable_backface"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapMaskTex, Loc("label_mask"));
+                DrawNoise(_CustomMatcapNoiseStrength, _CustomMatcapNoiseST);
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
@@ -794,7 +835,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRim2ndPower,             _CustomRim2ndBlur,
                 _CustomRim2ndBlendMode,         _CustomRim2ndNormalStrength,
                 _CustomRim2ndShadowAttenuation, _CustomRim2ndMainColorStrength,
-                _CustomRim2ndMaskTex,           _CustomRim2ndBorder,
+                _CustomRim2ndMaskTex, _CustomRim2ndNoiseStrength, _CustomRim2ndNoiseST,           _CustomRim2ndBorder,
                 _CustomRim2ndVerticalBias,      _CustomRim2ndBacklight,
                 _CustomRim2ndEnableLighting,
             });
@@ -822,6 +863,7 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRim2ndMainColorStrength, Loc("label_main_color_strength"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRim2ndMaskTex, Loc("label_mask"));
+                DrawNoise(_CustomRim2ndNoiseStrength, _CustomRim2ndNoiseST);
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
@@ -837,7 +879,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRim3rdPower,             _CustomRim3rdBlur,
                 _CustomRim3rdBlendMode,         _CustomRim3rdNormalStrength,
                 _CustomRim3rdShadowAttenuation, _CustomRim3rdMainColorStrength,
-                _CustomRim3rdMaskTex,           _CustomRim3rdBorder,
+                _CustomRim3rdMaskTex, _CustomRim3rdNoiseStrength, _CustomRim3rdNoiseST,           _CustomRim3rdBorder,
                 _CustomRim3rdVerticalBias,      _CustomRim3rdBacklight,
                 _CustomRim3rdEnableLighting,
             });
@@ -865,8 +907,24 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRim3rdMainColorStrength, Loc("label_main_color_strength"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRim3rdMaskTex, Loc("label_mask"));
+                DrawNoise(_CustomRim3rdNoiseStrength, _CustomRim3rdNoiseST);
                 EditorGUILayout.EndVertical();
             }
+            EditorGUILayout.EndVertical();
+        }
+
+        // -- Shared Noise Mask --
+        void DrawNoiseMask()
+        {
+            _foldNoise = Foldout(Loc("foldout_noise"), _foldNoise);
+            DrawSectionMenu(new[] { _CustomNoiseMaskTex });
+            if (!_foldNoise) return;
+
+            EditorGUILayout.BeginVertical(boxOuter);
+            EditorGUILayout.BeginVertical(boxInner);
+            EditorGUILayout.HelpBox(Loc("help_noise"), MessageType.None);
+            Prop(_CustomNoiseMaskTex, Loc("label_noise_texture"));
+            EditorGUILayout.EndVertical();
             EditorGUILayout.EndVertical();
         }
 
