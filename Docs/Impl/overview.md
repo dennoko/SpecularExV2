@@ -52,6 +52,7 @@ lilToon 本体の「反射（リアルモード）」と同等の GGX / Blinn-Ph
   - クリアコート (`_CustomRefl2ndClearCoat`): F0 = 0.04 固定 + 下地を視線フレネルで減衰 (後段の lilToon 反射等は減衰対象外)
   - フレネル強度 / 鋭さ (`_CustomRefl2ndFresnelStrength` / `_CustomRefl2ndFresnelPower`)
   - 適用マスク (`_CustomRefl2ndMaskTex`): ※エディタで自動パック（Pack 1 Rチャンネル）
+  - ノイズ (`_CustomRefl2ndNoiseStrength` 0〜1, `_CustomRefl2ndNoiseST` = タイリング xy / オフセット zw): 共通ノイズマスクをこの機能のタイリングで参照し、マスクに `lerp(1, noise, 強度)` を掛ける
 
 ---
 
@@ -72,6 +73,7 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - クリアコート (`_CustomRefl3rdClearCoat`): F0 = 0.04 固定 + 下地を視線フレネルで減衰 (後段の lilToon 反射等は減衰対象外)
   - フレネル強度 / 鋭さ (`_CustomRefl3rdFresnelStrength` / `_CustomRefl3rdFresnelPower`)
   - 適用マスク (`_CustomRefl3rdMaskTex`): ※エディタで自動パック（Pack 2 Rチャンネル）
+  - ノイズ (`_CustomRefl3rdNoiseStrength` 0〜1, `_CustomRefl3rdNoiseST` = タイリング xy / オフセット zw): 共通ノイズマスクをこの機能のタイリングで参照し、マスクに `lerp(1, noise, 強度)` を掛ける
 
 ---
 
@@ -108,7 +110,8 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - ポリゴン裏面無効化 (`_CustomMatcapDisableBackface`)
   - HSVG 調整 (`_CustomMatcapHSVG`: 色相, 彩度, 明度, ガンマ。`lilToneCorrection`、既定値では処理を省略)
   - メインカラー乗算度 (`_CustomMatcapMainColorStrength`)
-  - 適用マスク (`_CustomMatcapMaskTex`): ※エディタで自動パック（Aチャンネル）
+  - 適用マスク (`_CustomMatcapMaskTex`): ※エディタで自動パック（Pack 1 Aチャンネル）
+  - ノイズ (`_CustomMatcapNoiseStrength` 0〜1, `_CustomMatcapNoiseST` = タイリング xy / オフセット zw): 共通ノイズマスクをこの機能のタイリングで参照し、マスクに `lerp(1, noise, 強度)` を掛ける
 
 ---
 
@@ -165,6 +168,7 @@ lilToon 本体のリムライトに加えて独立して発光/陰影効果を�
   - リムライトの方向 (`_CustomRim2ndVerticalBias`, -1〜1): ワールド上方向を基準に、+ で上向きの面、- で下向きの面だけにリムを出す
   - 逆光ブースト (`_CustomRim2ndBacklight`, 0〜4): 光源が視点の反対側にあるほどリムを強める (`saturate(-fd.vl)^2`)
   - 適用マスク (`_CustomRim2ndMaskTex`): ※エディタで自動パック（Pack 1 Gチャンネル）
+  - ノイズ (`_CustomRim2ndNoiseStrength` 0〜1, `_CustomRim2ndNoiseST` = タイリング xy / オフセット zw): 共通ノイズマスクをこの機能のタイリングで参照し、マスクに `lerp(1, noise, 強度)` を掛ける
 
 ---
 
@@ -185,6 +189,13 @@ Rim Light 2nd と同等の完全な第3のリムライト層です。独立し�
   - リムライトの方向 (`_CustomRim3rdVerticalBias`, -1〜1)
   - 逆光ブースト (`_CustomRim3rdBacklight`, 0〜4)
   - 適用マスク (`_CustomRim3rdMaskTex`): ※エディタで自動パック（Pack 2 Gチャンネル）
+  - ノイズ (`_CustomRim3rdNoiseStrength` 0〜1, `_CustomRim3rdNoiseST` = タイリング xy / オフセット zw): 共通ノイズマスクをこの機能のタイリングで参照し、マスクに `lerp(1, noise, 強度)` を掛ける
+
+### 2.6 共通ノイズマスク
+- スロット `_CustomNoiseMaskTex`（1枚、Pack 2 Aチャンネル）を、スペキュラー 2nd/3rd・MatCap・リムライト 2nd/3rd が共通で参照する。粗い表面のハイライトなどを想定。
+- スロット自体のタイリングは使わない（`[NoScaleOffset]`）。各機能の `*NoiseST` で個別にタイリング / オフセットを設定するため、1枚のテクスチャから機能ごとに異なる粒度を得られる。
+- シェーダー: `DNKW_APPLY_NOISE(v, st, strength)` が `v *= lerp(1, DNKW_SAMPLE_MASK2(st).a, strength)` を行う。強度 0 のときはサンプリングしない（uniform 分岐）。
+- 未設定時はパックの既定値 1.0（白）なので、強度を上げても見た目は変わらない（インスペクターで案内を表示）。
 
 ---
 
@@ -215,7 +226,7 @@ Rim Light 2nd と同等の完全な第3のリムライト層です。独立し�
 | **R** | `_CustomRefl3rdMaskTex` | スペキュラー 3rd マスク | `1.0` (White) |
 | **G** | `_CustomRim3rdMaskTex` | リムライト 3rd マスク | `1.0` (White) |
 | **B** | `_CustomNormal4thMaskTex` | ノーマルマップ 4th マスク | `1.0` (White) |
-| **A** | 未使用 | 予備 | `1.0` (White) |
+| **A** | `_CustomNoiseMaskTex` | 共通ノイズマスク（各機能の `*NoiseST` で参照） | `1.0` (White) |
 
 ### 3.3 エディタ側ライフサイクル（DennokoEx 方式準拠）
 `Assets/dennokoworks/DennokoEx` の実装設計（永続 PNG アセット＋ビルドフック方式）を採用します。
@@ -302,7 +313,8 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 2. **追加 MatCap**: 有効化、テクスチャ、ワールド固定 ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転 (ワールド固定 > 0 のとき)、法線強度 ／ ライティング/影反映、裏面 ／ マスク
 3. **追加ノーマル (Normal Map 3rd / 4th、それぞれ独立したセクション)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
 4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、ブレンドモード、ライティング反映 ／ Power、境界、ぼかし ／ 上下制限、逆光ブースト ／ 法線強度、影減衰、メインカラー反映 ／ マスク
-5. **マスクパッキング状態 (Mask Packing Status)**: 自動パックの稼働状態、現在のフィンガープリント、手動強制再ベイクボタン
+5. **ノイズマスク（共通）**: 共通ノイズテクスチャのスロットと説明。各機能のマスクの下に「ノイズ強度」、強度 > 0 のときだけ「タイリング / オフセット」を表示
+6. **マスクパッキング状態 (Mask Packing Status)**: 自動パックの稼働状態、現在のフィンガープリント、手動強制再ベイクボタン
 
 ---
 
