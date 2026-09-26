@@ -145,6 +145,7 @@ namespace Dennokoworks.SpecularExV2
         static bool _foldRim3rd;
         static bool _foldNoise;
         static bool _foldPacking;
+        static readonly List<Material> _packingMats = new List<Material>();
 
         // Copy/paste buffer
         static readonly Dictionary<string, float>   _clipFloats   = new Dictionary<string, float>();
@@ -1012,7 +1013,8 @@ namespace Dennokoworks.SpecularExV2
             EditorGUILayout.BeginVertical(boxInner);
             EditorGUILayout.HelpBox(Loc("help_packing"), MessageType.None);
 
-            var mats = new List<Material>();
+            var mats = _packingMats;
+            mats.Clear();
             foreach (var t in m_MaterialEditor.targets)
                 if (t is Material mm && SpecularExMaskPacker.HasPackedSlot(mm)) mats.Add(mm);
 
@@ -1034,7 +1036,10 @@ namespace Dennokoworks.SpecularExV2
             // Manual repair: regenerate the packed mask files of these materials. Deferred out of OnGUI
             // because it imports assets.
             if (GUILayout.Button(Loc("btn_rebuild_packed_mask")))
-                EditorApplication.delayCall += () => SpecularExPackedMaskStore.EnsureAll(mats, persist: true, rebake: true);
+            {
+                var selected = mats.ToArray(); // the list is reused by the next OnGUI
+                EditorApplication.delayCall += () => SpecularExPackedMaskStore.EnsureAll(selected, persist: true, rebake: true);
+            }
 
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndVertical();

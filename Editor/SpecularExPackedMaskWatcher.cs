@@ -231,6 +231,9 @@ namespace Dennokoworks.SpecularExV2
 
             var targets = new List<Material>(_materials);
             _materials.Clear();
+            // Everything from here up to the scene scan is affected by an asset change, so a cached
+            // check of it cannot be trusted.
+            int affectedFrom = targets.Count;
 
             // Affected materials are looked up before the index and the tracking are updated: after a
             // deletion, the state recorded before this batch is the only record of who used the file.
@@ -238,6 +241,7 @@ namespace Dennokoworks.SpecularExV2
             {
                 if (fullCheck != null)
                 {
+                    SpecularExPackedMaskStore.InvalidateAllCaches();
                     var t0 = System.Diagnostics.Stopwatch.StartNew();
                     RebuildIndex(targets, showProgress: false);
                     indexMs = t0.ElapsedMilliseconds;
@@ -287,6 +291,7 @@ namespace Dennokoworks.SpecularExV2
             }
             _containerPaths.Clear();
             PurgeExpiredSelfSaves();
+            for (int i = affectedFrom; i < targets.Count; i++) SpecularExPackedMaskStore.InvalidateVerified(targets[i]);
 
             // Scene content is re-registered (tracked) on every scan, even when its check is cheap.
             bool scanned = _scanScenes;
@@ -298,8 +303,8 @@ namespace Dennokoworks.SpecularExV2
             }
             if (timer != null) collectMs = timer.ElapsedMilliseconds;
 
-            // A full check trusts nothing verified earlier.
-            try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true, useCache: fullCheck == null); }
+            // Verified materials are skipped cheaply; a full check has cleared that cache above.
+            try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true, useCache: true); }
             catch (System.Exception e) { Debug.LogException(e); }
 
             // The check may have assigned packed textures; record the result so the change events
@@ -318,7 +323,7 @@ namespace Dennokoworks.SpecularExV2
                           (fullCheck != null ? $"FULL CHECK ({fullCheck}) | " : "") +
                           (indexMs >= 0 ? $"index built in {indexMs} ms ({_containerDeps.Count} containers) | " : "") +
                           $"requested {requested}, containers {containers} (own saves {ownSaves}), textures {textures}, deleted {deleted}, scene scan {scanned} | " +
-                          $"targets {targets.Count}, examined {st.materials}, written {st.written}, reimported {st.reimported}, assigned {st.assigned}, tracked {_tracked.Count}");
+                          $"targets {targets.Count}, examined {st.materials} (cached {st.cached}), written {st.written}, reimported {st.reimported}, assigned {st.assigned}, tracked {_tracked.Count}");
             }
         }
 
@@ -469,6 +474,19 @@ namespace Dennokoworks.SpecularExV2
                 }
             }
             foreach (var id in dead) _tracked.Remove(id);
+        }
+
+        // Generated files are not queued (they are derived data), but a changed one invalidates the
+        // cached checks of the materials that referenced it.
+        static void InvalidateVerifiedUsing(string path)
+        {
+            foreach (var t in _tracked.Values)
+                foreach (var p in t.paths)
+                {
+                    if (!string.Equals(p, path, System.StringComparison.OrdinalIgnoreCase)) continue;
+                    SpecularExPackedMaskStore.InvalidateVerified(t.material);
+                    break;
+                }
         }
 
         static void MoveTrackedPath(string from, string to)
@@ -677,6 +695,7 @@ namespace Dennokoworks.SpecularExV2
         {
             static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
             {
+                SpecularExPackedMaskStore.NoteAssetChange();
                 bool queued = false;
                 foreach (var path in imported)
                 {
@@ -684,6 +703,7 @@ namespace Dennokoworks.SpecularExV2
                     {
                         // Our own writes and manual edits alike: re-verify its import settings next time.
                         SpecularExPackedMaskStore.InvalidateImportSettings(path);
+                        InvalidateVerifiedUsing(path);
                         continue;
                     }
                     string ext = Path.GetExtension(path);
@@ -709,6 +729,7 @@ namespace Dennokoworks.SpecularExV2
                     if (i < movedFrom.Length)
                     {
                         SpecularExPackedMaskStore.InvalidateImportSettings(movedFrom[i]);
+                        InvalidateVerifiedUsing(movedFrom[i]);
                         MoveTrackedPath(movedFrom[i], moved[i]);
                         MoveIndexPath(movedFrom[i], moved[i]);
                     }
