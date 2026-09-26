@@ -48,7 +48,6 @@ lilToon 本体の「反射（リアルモード）」と同等の GGX / Blinn-Ph
   - メインカラー乗算度 (`_CustomRefl2ndMainColorStrength`)
   - 光源方向の補正 (`_CustomRefl2ndFakeLightBlend` / `_CustomRefl2ndFakeLightDir`): ForwardBase の光源方向をカメラ基準の方向 (x=右, y=上, z=視点側) へ寄せる。方向のみ変え、明るさはライティングに従う
   - ライティング反映 (`_CustomRefl2ndEnableLighting`, 既定 1): ライト色の乗算度。ForwardAdd では `lightColor × 値`
-  - 明るさ上限 (`_CustomRefl2ndLightLimit`, 既定 10 = 無制限): ライト輝度に対する倍率で輝度を制限 (色相は保持)。暗いワールドでハイライトが浮くのを防ぐ
   - クリアコート (`_CustomRefl2ndClearCoat`): F0 = 0.04 固定 + 下地を視線フレネルで減衰 (後段の lilToon 反射等は減衰対象外)
   - フレネル強度 / 鋭さ (`_CustomRefl2ndFresnelStrength` / `_CustomRefl2ndFresnelPower`)
   - 適用マスク (`_CustomRefl2ndMaskTex`): ※エディタで自動パック（Pack 1 Rチャンネル）
@@ -69,7 +68,6 @@ Specular 2nd と同等の完全な第3のスペキュラー層です。独立し
   - メインカラー乗算度 (`_CustomRefl3rdMainColorStrength`)
   - 光源方向の補正 (`_CustomRefl3rdFakeLightBlend` / `_CustomRefl3rdFakeLightDir`): ForwardBase の光源方向をカメラ基準の方向 (x=右, y=上, z=視点側) へ寄せる。方向のみ変え、明るさはライティングに従う
   - ライティング反映 (`_CustomRefl3rdEnableLighting`, 既定 1): ライト色の乗算度。ForwardAdd では `lightColor × 値`
-  - 明るさ上限 (`_CustomRefl3rdLightLimit`, 既定 10 = 無制限): ライト輝度に対する倍率で輝度を制限 (色相は保持)。暗いワールドでハイライトが浮くのを防ぐ
   - クリアコート (`_CustomRefl3rdClearCoat`): F0 = 0.04 固定 + 下地を視線フレネルで減衰 (後段の lilToon 反射等は減衰対象外)
   - フレネル強度 / 鋭さ (`_CustomRefl3rdFresnelStrength` / `_CustomRefl3rdFresnelPower`)
   - 適用マスク (`_CustomRefl3rdMaskTex`): ※エディタで自動パック（Pack 2 Rチャンネル）
@@ -279,7 +277,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 ### 5.2 インスペクターセクション構成
 `SpecularExV2Inspector`（`lilToonInspector` 派生）を実装し、以下の構成で lilToon の UI に自然に統合します。
 
-1. **追加スペキュラー (Specular 2nd / 3rd)**: 有効化、色、強度 ／ タイプ、スムースネス、クリアコート (ON 時はメタリック・反射率を隠す)、フレネル ／ ライティング反映、明るさ上限、光源方向の補正 ／ 法線強度、影減衰、メインカラー反映、ForwardAdd適用 ／ マスク
+1. **追加スペキュラー (Specular 2nd / 3rd)**: 有効化、色、強度 ／ タイプ、スムースネス、クリアコート (ON 時はメタリック・反射率を隠す)、フレネル ／ ライティング反映、光源方向の補正 ／ 法線強度、影減衰、メインカラー反映、ForwardAdd適用 ／ マスク
 2. **追加 MatCap**: 有効化、空間モード、テクスチャ、レイアウト (旧 Back テクスチャが残っていれば結合ボタン) ／ 色、強度、ブレンドモード、メインカラー、HSVG ／ ぼかし、回転、法線強度、フレネル ／ ライティング/影反映、裏面 ／ マスク
 3. **追加ノーマル (Normal Map 3rd)**: 有効化、ノーマルマップ、スケール、UV選択、スクロール/角度/回転速度 ／ 距離フェード ／ マスク
 4. **追加リムライト (Rim Light 2nd)**: 有効化、色、強度、ブレンドモード、ライティング反映 ／ Power、境界、ぼかし ／ 上下制限、逆光ブースト ／ 法線強度、影減衰、メインカラー反映 ／ マスク

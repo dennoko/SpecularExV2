@@ -14,7 +14,7 @@
 
 | 機能 | 項目 | 節 |
 |---|---|---|
-| スペキュラー 2nd/3rd | 光源方向の補正（フェイクライト）＋ライティングによる強度制限 | §1.1 |
+| スペキュラー 2nd/3rd | 光源方向の補正（フェイクライト）＋ライティング反映 | §1.1 |
 | スペキュラー 2nd/3rd | クリアコートモード | §1.2 |
 | スペキュラー 2nd/3rd | フレネル強度 | §1.3 |
 | MatCap | 空間モード View / World / Object | §2.1 |
@@ -34,7 +34,7 @@
 
 2nd と 3rd は同一ロジックです。以下のプロパティ名は `Refl2nd` で記載していますが、`Refl3rd` にも同じものを追加します。
 
-### 1.1 光源方向の補正（フェイクライト）とライティングによる強度制限
+### 1.1 光源方向の補正（フェイクライト）とライティング反映
 
 **目的**: ディレクショナルライトのないワールドでは、`fd.L` が SH の主方向（多くは真上）になり、ハイライトが視界に入らない。そこで光源方向だけをカメラ基準の方向に寄せる。その一方で、**明るさは常にシーンのライティングに従わせ**、暗所で浮かないようにする。
 
@@ -45,7 +45,6 @@
 | `_CustomRefl2ndFakeLightBlend` | Range(0, 1) | 0 | 実ライト方向 → フェイクライト方向へのブレンド率 |
 | `_CustomRefl2ndFakeLightDir` | Vector | (0.3, 0.5, 1, 0) | カメラ基準の光源方向（x=右, y=上, z=視点側） |
 | `_CustomRefl2ndEnableLighting` | Range(0, 1) | 1 | ライト色を乗算する度合い（1 = 現状の挙動） |
-| `_CustomRefl2ndLightLimit` | Range(0, 10) | 10 | 明るさの上限（ライト輝度に対する倍率）。最大値 10 で無制限（既存マテリアルの見た目を維持） |
 
 **計算**（ForwardBase のみ。ForwardAdd は実在の追加ライトなので補正しない）
 
@@ -58,17 +57,10 @@ float3 L     = normalize(lerp(fd.L, fakeL, fakeBlend));   // ForwardAdd では f
 - 明るさは補正前と同じ `fd.lightColor` を使う。**フェイクライトは方向だけを変え、光量は作らない**。
 - ライト色の反映:
   `lightFactor = lerp(1, fd.lightColor, EnableLighting)`
-- 明るさの上限（輝度ベースで色相を保つ）:
-  ```hlsl
-  float3 contrib = spec * color * lightFactor * strength * mask * atten;
-  float  cap     = LightLimit * lilLuminance(fd.lightColor);          // ForwardAdd では × fd.attenuation
-  contrib *= min(1.0, cap / max(lilLuminance(contrib), 1e-4));
-  ```
-  lilToon の `fd.lightColor` は `_LightMinLimit`（lilToon 側の既定 0.05）で下限クランプされる。このため Strength と HDR カラーを大きくすると、真っ暗な場所でもハイライトが残る。`LightLimit` を 1〜2 程度にすると、こうした浮きを防げる。
-- 輝度は lilToon の `lilLuminance`（色空間対応）を使う。
+- ~~明るさの上限（ライト輝度に対する倍率で輝度を制限する `LightLimit`）~~ — 実装後に**オミット**（ライティング反映のみで扱う）。
 - ForwardAdd ではライト色の反映を `lightColor * EnableLighting` とする（加算パスなので MatCap と同じ扱い）。
 
-**実装箇所**: `custom_insert.hlsl` に `DNKW_SpecularLightDir`（パスで分岐）・`DNKW_SpecularLighting`・`DNKW_ApplyLightLimit` と、2nd/3rd 共通の `DNKW_ApplySpecularLayer` を追加し、`BEFORE_REFLECTION` はそれを呼ぶだけにする。
+**実装箇所**: `custom_insert.hlsl` に `DNKW_SpecularLightDir`（パスで分岐）・`DNKW_SpecularLighting` と、2nd/3rd 共通の `DNKW_ApplySpecularLayer` を追加し、`BEFORE_REFLECTION` はそれを呼ぶだけにする。
 
 ### 1.2 クリアコートモード
 
@@ -273,7 +265,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 |---|---|
 | `Shaders/lilCustomShaderProperties.lilblock` | §1〜4 のプロパティを追加。`_CustomMatcapBackTex` と `_CustomMatcapBackEnabled` を削除。`_CustomMatcapWorldFixed` のコメントを3値に更新 |
 | `Shaders/custom.hlsl` | `LIL_CUSTOM_PROPERTIES` に追加し、`_CustomMatcapFrontTex_TexelSize` も追加。`LIL_CUSTOM_TEXTURES` から Back を削除。各フックマクロを改修 |
-| `Shaders/custom_insert.hlsl` | `DNKW_SpecularLightDir`、`DNKW_SpecularLighting`、`DNKW_ApplyLightLimit`、`DNKW_ApplySpecularLayer`、`DNKW_FresnelWeight`、`DNKW_ToneCorrection`、`DNKW_MatcapAtlasUV` を追加。`DNKW_SampleWorldMatcap` を1枚テクスチャ対応に改修 |
+| `Shaders/custom_insert.hlsl` | `DNKW_SpecularLightDir`、`DNKW_SpecularLighting`、`DNKW_ApplySpecularLayer`、`DNKW_FresnelWeight`、`DNKW_ToneCorrection`、`DNKW_MatcapAtlasUV` を追加。`DNKW_SampleWorldMatcap` を1枚テクスチャ対応に改修 |
 | `Editor/SpecularExV2Inspector.cs` | プロパティ参照、描画、コピー／ペースト対象リスト、クリアコート時の Metallic/Reflectance 非表示、MatCap 空間モードの Popup 化、旧 Back テクスチャの移行 UI |
 | `Editor/SpecularExMatcapAtlasBaker.cs`（新規） | Front+Back の左右結合ベイク（GPU Blit と PNG 保存） |
 | `Editor/VRCSDK/SpecularExPackedMaskBuildHook.cs` | 未移行の Back テクスチャがあれば警告 |
@@ -282,11 +274,11 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 
 ### 5.1 追加ローカライズキー（案）
 
-`label_fake_light_blend`, `label_fake_light_dir`, `label_enable_lighting`（既存を流用）, `label_light_limit`, `label_clear_coat`, `label_fresnel_strength`, `label_fresnel_power`, `label_matcap_space`, `space_view`, `space_world`, `space_object`, `label_matcap_layout`, `layout_single`, `layout_side_by_side`, `label_hue`, `label_saturation`, `label_value`, `label_gamma`, `label_distance_fade_start`, `label_distance_fade_end`, `label_distance_fade_strength`, `label_uv_scroll`, `label_uv_angle`, `label_uv_rotate_speed`, `label_vertical_bias`, `label_backlight`, `label_border`, `help_matcap_legacy_back`, `button_matcap_bake_atlas`, `help_clear_coat`, `help_light_limit`
+`label_fake_light_blend`, `label_fake_light_dir`, `label_enable_lighting`（既存を流用）, `label_clear_coat`, `label_fresnel_strength`, `label_fresnel_power`, `label_matcap_space`, `space_view`, `space_world`, `space_object`, `label_matcap_layout`, `layout_single`, `layout_side_by_side`, `label_hue`, `label_saturation`, `label_value`, `label_gamma`, `label_distance_fade_start`, `label_distance_fade_end`, `label_distance_fade_strength`, `label_uv_scroll`, `label_uv_angle`, `label_uv_rotate_speed`, `label_vertical_bias`, `label_backlight`, `label_border`, `help_matcap_legacy_back`, `button_matcap_bake_atlas`, `help_clear_coat`
 
 ### 5.2 インスペクター配置
 
-- **スペキュラー**: 色・強度 ／ タイプ・滑らかさ・金属度・反射率（クリアコート ON 時は金属度と反射率を隠す）・クリアコート ／ フレネル強度・鋭さ ／ **ライティング**（ライティング反映・明るさ上限・フェイクライトのブレンドと方向）／ 法線・影・メインカラー・ForwardAdd ／ マスク
+- **スペキュラー**: 色・強度 ／ タイプ・滑らかさ・金属度・反射率（クリアコート ON 時は金属度と反射率を隠す）・クリアコート ／ フレネル強度・鋭さ ／ **ライティング**（ライティング反映・フェイクライトのブレンドと方向）／ 法線・影・メインカラー・ForwardAdd ／ マスク
 - **MatCap**: 空間モード・テクスチャ・レイアウト（World/Object のときだけ表示）／ 色・強度・ブレンド・HSV・メインカラー ／ ぼかし・回転・法線・フレネル ／ ライティング・影・裏面 ／ マスク
 - **ノーマル 3rd**: ノーマルマップ・強度・UV・スクロール／回転 ／ 距離フェード ／ マスク
 - **リム 2nd**: 色・強度・ブレンド・ライティング反映 ／ Power・境界・ぼかし ／ 上下制限・逆光 ／ 法線・影・メインカラー ／ マスク
@@ -314,7 +306,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
   - [x] C# のコンパイル: `SpecularExV2.Editor` と `SpecularExV2.VRCSDK.Editor` を Unity 同梱の Roslyn と Unity 生成 csproj の参照でコンパイルし、エラーがないことを確認
   - [x] ローカライズ: インスペクターが参照するキーが ja-JP / en-US の両方に存在することを確認
   - [x] 既定値での互換性（コードレビュー）: 新しいプロパティはすべて、既定値で従来と同じ計算になる（例外は意図した変更であるリム 2nd のライティング反映のみ）
-    - スペキュラー: `FakeLightBlend=0` で `fd.L`、`EnableLighting=1` で `fd.lightColor`、`FresnelStrength=0` で ×1、`LightLimit=10` で上限処理をスキップ、`ClearCoat=0`
+    - スペキュラー: `FakeLightBlend=0` で `fd.L`、`EnableLighting=1` で `fd.lightColor`、`FresnelStrength=0` で ×1、`ClearCoat=0`
     - MatCap: HSVG は既定値で処理を省略、`MainColorStrength=0`・`FresnelStrength=0` で ×1、`Layout=0` は旧「Back 未設定」時と同一
     - ノーマル 3rd: `ScrollRotate=0` で `lilCalcUV` は従来の `uv*ST.xy+ST.zw` と同一、`DistanceFade.z=0` で ×1
     - リム 2nd: `Border=0.5` で従来の定数と同一、`VerticalBias=0`・`Backlight=0` で ×1
@@ -322,7 +314,6 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
   **Unity 上での目視確認（未実施：実行中の Unity でのアセット再インポートと描画が必要）**
   - [ ] ライティング環境: ディレクショナルライトあり ／ なし（SH のみ）／ 真っ暗（`_LightMinLimit` のみ）／ ポイントライト（ForwardAdd）／ VRCLV
   - [ ] フェイクライト: VR の左右の目でハイライト位置が一致すること、ForwardAdd で補正されないこと
-  - [ ] LightLimit: 暗所で HDR・強度 10 のハイライトが抑えられること、明所では変化しないこと
   - [ ] クリアコート: グレージング角で下地が減衰すること、ForwardAdd 加算との整合
   - [ ] MatCap Layout = 1: 左右の境界で滲みがないこと（ぼかし 0 / 5 / 10 で確認）、前後の継ぎ目のクロスフェード、Object モードで回転・スケール（非一様を含む）したとき
   - [ ] 旧マテリアル: Back テクスチャ付きマテリアルで結合ボタンが出ること・結合後の見た目が結合前と一致すること、アニメーションクリップ内の `_CustomMatcapWorldFixed` の互換

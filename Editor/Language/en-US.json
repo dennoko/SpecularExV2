@@ -69,7 +69,6 @@
     "help_clear_coat": "Reflectance is fixed at 0.04 and the base below is darkened by the view angle (coat layer of paint, nails, resin...).",
     "label_fresnel_strength": "Fresnel Strength",
     "label_fresnel_power": "Fresnel Power",
-    "label_light_limit": "Brightness Limit (x light / max = unlimited)",
     "label_fake_light_blend": "Light Direction Override",
     "label_fake_light_dir": "Override Direction (camera: X=right Y=up Z=toward viewer)",
     "label_matcap_space": "Space",

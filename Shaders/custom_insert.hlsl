@@ -68,8 +68,6 @@ float3 DNKW_ToneCorrection(float3 c, float4 hsvg)
 //----------------------------------------------------------------------------------------------------------------------
 
 #define DNKW_CLEARCOAT_F0     0.04
-// _CustomRefl*LightLimit at (or near) its maximum disables the brightness cap.
-#define DNKW_LIGHT_LIMIT_OFF  9.999
 
 // lilToon's reflection is gated by _ApplySpecularFA in the additive pass; Specular 2nd mirrors that.
 bool DNKW_Refl2ndPassEnabled(float applyFA)
@@ -164,26 +162,13 @@ float3 DNKW_SpecularLighting(float3 lightColor, float enableLighting)
     #endif
 }
 
-// Caps the highlight's luminance at limit x the light's luminance, preserving its hue. lilToon only holds
-// fd.lightColor up by _LightMinLimit in dark worlds, so an HDR / high-strength highlight would otherwise
-// still glow there. limit >= DNKW_LIGHT_LIMIT_OFF leaves it untouched.
-float3 DNKW_ApplyLightLimit(float3 contrib, float3 lightColor, float attenuation, float limit)
-{
-    if (limit > DNKW_LIGHT_LIMIT_OFF) return contrib;
-    float cap = limit * lilLuminance(lightColor);
-    #if defined(LIL_PASS_FORWARDADD)
-        cap *= attenuation;
-    #endif
-    return contrib * min(1.0, cap / max(lilLuminance(contrib), 1e-4));
-}
-
 // One specular layer (Specular 2nd / 3rd). Adds the highlight to fd.col; with clear coat on, first darkens
 // what is below by the coat's view Fresnel (F0 = 0.04). That darkening happens at BEFORE_REFLECTION, so
 // lilToon's own reflection / matcap / rim / emission added later are not covered by the coat.
 void DNKW_ApplySpecularLayer(inout lilFragData fd, float mask, float3 color, float strength, float mode,
     float smoothness, float metallic, float reflectance, float normalStrength, float shadowAttenuation,
     float mainColorStrength, float fakeLightBlend, float3 fakeLightDir, float enableLighting,
-    float lightLimit, float clearCoat, float fresnelStrength, float fresnelPower)
+    float clearCoat, float fresnelStrength, float fresnelPower)
 {
     bool   coat  = clearCoat > 0.5;
     float3 N     = normalize(lerp(fd.origN, fd.N, normalStrength));
@@ -195,7 +180,6 @@ void DNKW_ApplySpecularLayer(inout lilFragData fd, float mask, float3 color, flo
     float3 tint  = color * lerp(float3(1.0, 1.0, 1.0), fd.albedo, mainColorStrength)
                  * DNKW_SpecularLighting(fd.lightColor, enableLighting);
     float3 contrib = spec * tint * (strength * mask * atten * DNKW_FresnelWeight(nv, fresnelStrength, fresnelPower));
-    contrib = DNKW_ApplyLightLimit(contrib, fd.lightColor, fd.attenuation, lightLimit);
 
     if (coat) fd.col.rgb *= 1.0 - lilFresnelTerm((DNKW_CLEARCOAT_F0).xxx, nv) * saturate(strength * mask);
     fd.col.rgb += contrib;

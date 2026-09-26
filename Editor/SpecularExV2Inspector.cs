@@ -25,7 +25,6 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRefl2ndFakeLightBlend;
         MaterialProperty _CustomRefl2ndFakeLightDir;
         MaterialProperty _CustomRefl2ndEnableLighting;
-        MaterialProperty _CustomRefl2ndLightLimit;
         MaterialProperty _CustomRefl2ndClearCoat;
         MaterialProperty _CustomRefl2ndFresnelStrength;
         MaterialProperty _CustomRefl2ndFresnelPower;
@@ -47,7 +46,6 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRefl3rdFakeLightBlend;
         MaterialProperty _CustomRefl3rdFakeLightDir;
         MaterialProperty _CustomRefl3rdEnableLighting;
-        MaterialProperty _CustomRefl3rdLightLimit;
         MaterialProperty _CustomRefl3rdClearCoat;
         MaterialProperty _CustomRefl3rdFresnelStrength;
         MaterialProperty _CustomRefl3rdFresnelPower;
@@ -142,7 +140,6 @@ namespace Dennokoworks.SpecularExV2
             _CustomRefl2ndFakeLightBlend = FindProperty("_CustomRefl2ndFakeLightBlend", props, false);
             _CustomRefl2ndFakeLightDir = FindProperty("_CustomRefl2ndFakeLightDir", props, false);
             _CustomRefl2ndEnableLighting = FindProperty("_CustomRefl2ndEnableLighting", props, false);
-            _CustomRefl2ndLightLimit = FindProperty("_CustomRefl2ndLightLimit", props, false);
             _CustomRefl2ndClearCoat = FindProperty("_CustomRefl2ndClearCoat", props, false);
             _CustomRefl2ndFresnelStrength = FindProperty("_CustomRefl2ndFresnelStrength", props, false);
             _CustomRefl2ndFresnelPower = FindProperty("_CustomRefl2ndFresnelPower", props, false);
@@ -163,7 +160,6 @@ namespace Dennokoworks.SpecularExV2
             _CustomRefl3rdFakeLightBlend = FindProperty("_CustomRefl3rdFakeLightBlend", props, false);
             _CustomRefl3rdFakeLightDir = FindProperty("_CustomRefl3rdFakeLightDir", props, false);
             _CustomRefl3rdEnableLighting = FindProperty("_CustomRefl3rdEnableLighting", props, false);
-            _CustomRefl3rdLightLimit = FindProperty("_CustomRefl3rdLightLimit", props, false);
             _CustomRefl3rdClearCoat = FindProperty("_CustomRefl3rdClearCoat", props, false);
             _CustomRefl3rdFresnelStrength = FindProperty("_CustomRefl3rdFresnelStrength", props, false);
             _CustomRefl3rdFresnelPower = FindProperty("_CustomRefl3rdFresnelPower", props, false);
@@ -535,7 +531,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRefl2ndNormalStrength,    _CustomRefl2ndShadowAttenuation,
                 _CustomRefl2ndMainColorStrength, _CustomRefl2ndApplyFA,
                 _CustomRefl2ndFakeLightBlend,    _CustomRefl2ndFakeLightDir,
-                _CustomRefl2ndEnableLighting,    _CustomRefl2ndLightLimit,
+                _CustomRefl2ndEnableLighting,
                 _CustomRefl2ndClearCoat,         _CustomRefl2ndFresnelStrength,
                 _CustomRefl2ndFresnelPower,      _CustomRefl2ndMaskTex,
             });
@@ -562,7 +558,6 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRefl2ndFresnelPower,    Loc("label_fresnel_power"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRefl2ndEnableLighting, Loc("label_enable_lighting"));
-                Prop(_CustomRefl2ndLightLimit,     Loc("label_light_limit"));
                 Prop(_CustomRefl2ndFakeLightBlend, Loc("label_fake_light_blend"));
                 Vec3Prop(_CustomRefl2ndFakeLightDir, Loc("label_fake_light_dir"));
                 lilEditorGUI.DrawLine();
@@ -589,7 +584,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRefl3rdNormalStrength,    _CustomRefl3rdShadowAttenuation,
                 _CustomRefl3rdMainColorStrength, _CustomRefl3rdApplyFA,
                 _CustomRefl3rdFakeLightBlend,    _CustomRefl3rdFakeLightDir,
-                _CustomRefl3rdEnableLighting,    _CustomRefl3rdLightLimit,
+                _CustomRefl3rdEnableLighting,
                 _CustomRefl3rdClearCoat,         _CustomRefl3rdFresnelStrength,
                 _CustomRefl3rdFresnelPower,      _CustomRefl3rdMaskTex,
             });
@@ -616,7 +611,6 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRefl3rdFresnelPower,    Loc("label_fresnel_power"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRefl3rdEnableLighting, Loc("label_enable_lighting"));
-                Prop(_CustomRefl3rdLightLimit,     Loc("label_light_limit"));
                 Prop(_CustomRefl3rdFakeLightBlend, Loc("label_fake_light_blend"));
                 Vec3Prop(_CustomRefl3rdFakeLightDir, Loc("label_fake_light_dir"));
                 lilEditorGUI.DrawLine();

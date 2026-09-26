@@ -29,9 +29,6 @@
         _CustomRefl2ndFakeLightBlend ("Specular 2nd Fake Light Blend", Range(0, 1)) = 0
         _CustomRefl2ndFakeLightDir ("Specular 2nd Fake Light Direction", Vector) = (0.3, 0.5, 1, 0)
         _CustomRefl2ndEnableLighting ("Specular 2nd Enable Lighting", Range(0, 1)) = 1
-        // Brightness cap relative to the light luminance (10 = unlimited). Keeps highlights from floating
-        // in dark worlds, where lilToon's light color is only held up by _LightMinLimit.
-        _CustomRefl2ndLightLimit ("Specular 2nd Light Limit", Range(0, 10)) = 10
         _CustomRefl2ndClearCoat ("Specular 2nd Clear Coat", Float) = 0
         _CustomRefl2ndFresnelStrength ("Specular 2nd Fresnel Strength", Range(0, 1)) = 0
         _CustomRefl2ndFresnelPower ("Specular 2nd Fresnel Power", Range(0.5, 10)) = 5
@@ -57,9 +54,6 @@
         _CustomRefl3rdFakeLightBlend ("Specular 3rd Fake Light Blend", Range(0, 1)) = 0
         _CustomRefl3rdFakeLightDir ("Specular 3rd Fake Light Direction", Vector) = (0.3, 0.5, 1, 0)
         _CustomRefl3rdEnableLighting ("Specular 3rd Enable Lighting", Range(0, 1)) = 1
-        // Brightness cap relative to the light luminance (10 = unlimited). Keeps highlights from floating
-        // in dark worlds, where lilToon's light color is only held up by _LightMinLimit.
-        _CustomRefl3rdLightLimit ("Specular 3rd Light Limit", Range(0, 10)) = 10
         _CustomRefl3rdClearCoat ("Specular 3rd Clear Coat", Float) = 0
         _CustomRefl3rdFresnelStrength ("Specular 3rd Fresnel Strength", Range(0, 1)) = 0
         _CustomRefl3rdFresnelPower ("Specular 3rd Fresnel Power", Range(0.5, 10)) = 5

@@ -32,7 +32,6 @@
     float  _CustomRefl2ndFakeLightBlend; \
     float4 _CustomRefl2ndFakeLightDir; \
     float  _CustomRefl2ndEnableLighting; \
-    float  _CustomRefl2ndLightLimit; \
     float  _CustomRefl2ndClearCoat; \
     float  _CustomRefl2ndFresnelStrength; \
     float  _CustomRefl2ndFresnelPower; \
@@ -51,7 +50,6 @@
     float  _CustomRefl3rdFakeLightBlend; \
     float4 _CustomRefl3rdFakeLightDir; \
     float  _CustomRefl3rdEnableLighting; \
-    float  _CustomRefl3rdLightLimit; \
     float  _CustomRefl3rdClearCoat; \
     float  _CustomRefl3rdFresnelStrength; \
     float  _CustomRefl3rdFresnelPower; \
@@ -189,7 +187,6 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // Extensions (all neutral at their defaults; see DNKW_ApplySpecularLayer in custom_insert.hlsl):
 //   fake light      - ForwardBase light DIRECTION blended toward a camera-relative one (brightness untouched)
 //   enable lighting - how much fd.lightColor tints/limits the highlight (1 = original behavior)
-//   light limit     - luminance cap relative to the light, so highlights do not float in dark worlds
 //   clear coat      - F0 fixed at 0.04 and the base below darkened by the coat's Fresnel
 //   fresnel         - weights the highlight toward grazing angles
 #define BEFORE_REFLECTION \
@@ -199,7 +196,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
             _CustomRefl2ndMetallic, _CustomRefl2ndReflectance, _CustomRefl2ndNormalStrength, \
             _CustomRefl2ndShadowAttenuation, _CustomRefl2ndMainColorStrength, \
             _CustomRefl2ndFakeLightBlend, _CustomRefl2ndFakeLightDir.xyz, _CustomRefl2ndEnableLighting, \
-            _CustomRefl2ndLightLimit, _CustomRefl2ndClearCoat, _CustomRefl2ndFresnelStrength, _CustomRefl2ndFresnelPower); \
+            _CustomRefl2ndClearCoat, _CustomRefl2ndFresnelStrength, _CustomRefl2ndFresnelPower); \
     } \
     if (_CustomRefl3rdEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl3rdApplyFA)) { \
         DNKW_ApplySpecularLayer(fd, DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r, \
@@ -207,7 +204,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
             _CustomRefl3rdMetallic, _CustomRefl3rdReflectance, _CustomRefl3rdNormalStrength, \
             _CustomRefl3rdShadowAttenuation, _CustomRefl3rdMainColorStrength, \
             _CustomRefl3rdFakeLightBlend, _CustomRefl3rdFakeLightDir.xyz, _CustomRefl3rdEnableLighting, \
-            _CustomRefl3rdLightLimit, _CustomRefl3rdClearCoat, _CustomRefl3rdFresnelStrength, _CustomRefl3rdFresnelPower); \
+            _CustomRefl3rdClearCoat, _CustomRefl3rdFresnelStrength, _CustomRefl3rdFresnelPower); \
     }
 
 //----------------------------------------------------------------------------------------------------------------------

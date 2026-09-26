@@ -69,7 +69,6 @@
     "help_clear_coat": "反射率を0.04に固定し、視線角度に応じて下地を暗くします (塗装・ネイル・レジンなどのコート層)。",
     "label_fresnel_strength": "フレネル強度",
     "label_fresnel_power": "フレネルの鋭さ",
-    "label_light_limit": "明るさ上限 (ライト比 / 最大で無制限)",
     "label_fake_light_blend": "光源方向の補正",
     "label_fake_light_dir": "補正方向 (カメラ基準: X=右 Y=上 Z=手前)",
     "label_matcap_space": "空間モード",
