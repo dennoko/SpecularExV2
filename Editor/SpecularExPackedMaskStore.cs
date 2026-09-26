@@ -189,7 +189,11 @@ namespace Dennokoworks.SpecularExV2
             {
                 foreach (var m in changedMaterials)
                 {
-                    if (CanSave(m)) AssetDatabase.SaveAssetIfDirty(m);
+                    if (!CanSave(m)) continue;
+                    // The save reimports the .mat; tell the watcher it is ours so it is not re-checked.
+                    SpecularExPackedMaskWatcher.NoteSelfSave(m);
+                    try { AssetDatabase.SaveAssetIfDirty(m); }
+                    catch { SpecularExPackedMaskWatcher.ForgetSelfSave(m); throw; }
                 }
             }
             return ok;

@@ -44,6 +44,19 @@ namespace Dennokoworks.SpecularExV2
         // AssetDatabase searches cannot find them, so source texture changes are matched against this set.
         static readonly HashSet<Material> _inMemory = new HashSet<Material>();
 
+        // .mat files just saved by EnsureAll, with the material's slots at that moment. The reimport the
+        // save causes is skipped once if the material still matches; anything else (another save, an
+        // external edit, a late or missing notification) is processed normally.
+        struct SelfSave
+        {
+            public int id;
+            public int[] state;
+            public double expires;
+        }
+
+        const double SelfSaveLifetime = 5; // seconds
+        static readonly Dictionary<string, SelfSave> _selfSaved = new Dictionary<string, SelfSave>(System.StringComparer.OrdinalIgnoreCase);
+
         static readonly HashSet<string> TextureExtensions = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
         {
             ".png", ".jpg", ".jpeg", ".tga", ".psd", ".tif", ".tiff", ".bmp", ".gif", ".exr", ".hdr",
@@ -104,6 +117,46 @@ namespace Dennokoworks.SpecularExV2
             Request(m);
         }
 
+        public static void NoteSelfSave(Material m)
+        {
+            string path = AssetDatabase.GetAssetPath(m);
+            if (string.IsNullOrEmpty(path)) return;
+            _selfSaved[path] = new SelfSave
+            {
+                id = m.GetInstanceID(),
+                state = SpecularExPackedMaskStore.SlotSnapshot(m),
+                expires = EditorApplication.timeSinceStartup + SelfSaveLifetime,
+            };
+        }
+
+        public static void ForgetSelfSave(Material m)
+        {
+            string path = AssetDatabase.GetAssetPath(m);
+            if (!string.IsNullOrEmpty(path)) _selfSaved.Remove(path);
+        }
+
+        // Whether this container import is the reimport of our own save and the material is still what
+        // was saved. Consumes the registration either way.
+        static bool IsOwnSave(string path, List<Material> materials)
+        {
+            if (!_selfSaved.TryGetValue(path, out var save)) return false;
+            _selfSaved.Remove(path);
+            return EditorApplication.timeSinceStartup <= save.expires
+                   && materials.Count == 1
+                   && materials[0].GetInstanceID() == save.id
+                   && SpecularExPackedMaskStore.SnapshotEquals(save.state, SpecularExPackedMaskStore.SlotSnapshot(materials[0]));
+        }
+
+        static void PurgeExpiredSelfSaves()
+        {
+            if (_selfSaved.Count == 0) return;
+            double now = EditorApplication.timeSinceStartup;
+            var expired = new List<string>();
+            foreach (var kv in _selfSaved)
+                if (now > kv.Value.expires) expired.Add(kv.Key);
+            foreach (var path in expired) _selfSaved.Remove(path);
+        }
+
         static void RequestSceneScan()
         {
             _scanScenes = true;
@@ -134,6 +187,7 @@ namespace Dennokoworks.SpecularExV2
             int requested = _materials.Count, containers = _containerPaths.Count, textures = _texturePaths.Count;
             bool scanned = _scanScenes, deleted = _texturesDeleted;
             long collectMs = 0;
+            int ownSaves = 0;
 
             var targets = new List<Material>(_materials);
             _materials.Clear();
@@ -148,9 +202,14 @@ namespace Dennokoworks.SpecularExV2
             // A full project import reports every model and .asset here; loading them all is what
             // made first imports slow, so only files that reference a SpecularExV2 shader are loaded.
             foreach (var path in _containerPaths)
-                if (SpecularExPackedMaskStore.UsesSpecularExShader(path))
-                    targets.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(path));
+            {
+                if (!SpecularExPackedMaskStore.UsesSpecularExShader(path)) { _selfSaved.Remove(path); continue; }
+                var materials = SpecularExPackedMaskStore.LoadMaterialsAtPath(path);
+                if (IsOwnSave(path, materials)) { ownSaves++; continue; }
+                targets.AddRange(materials);
+            }
             _containerPaths.Clear();
+            PurgeExpiredSelfSaves();
 
             if (_texturePaths.Count > 0 || _texturesDeleted)
             {
@@ -177,7 +236,7 @@ namespace Dennokoworks.SpecularExV2
             {
                 var st = SpecularExPackedMaskStore.LastStats;
                 Debug.Log($"[SpecularExV2] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
-                          $"requested {requested}, containers {containers}, textures {textures}, deleted {deleted}, scene scan {scanned} | " +
+                          $"requested {requested}, containers {containers} (own saves {ownSaves}), textures {textures}, deleted {deleted}, scene scan {scanned} | " +
                           $"targets {targets.Count}, examined {st.materials}, written {st.written}, reimported {st.reimported}, assigned {st.assigned}");
             }
 
