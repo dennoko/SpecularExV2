@@ -237,3 +237,19 @@ Dictionary<string containerPath, string[] texturePaths>       _containerToTex   
 - シェーダー（GPU 側）の最適化。これは `optimization_report.md` で扱う。
 - 生成ファイルの自動削除。これは Undo や他のコピーから参照される可能性があるため、従来どおり手動メニューのみとする。
 - `EditorApplication.update` による処理の時間分割。H を入れた後にもシーン走査が重い場合だけ検討する。
+
+## 8. 実装状況（2026-09-27）
+
+手順 1〜4・6〜8（M、A、D・E、B、C、F、G・H）を `develop` に実装した。3つのエディタアセンブリ（`SpecularExV2.Editor` / `.NDMF.Editor` / `.VRCSDK.Editor`）は `dotnet build` でコンパイルできることを確認している。**Unity 上での動作確認・計測（手順 5・9）、6章のチェックリスト、I（手順 10）は未実施。**
+
+計画からの差分:
+
+- **A:** `_slotState` の更新は `EnsureAll` の中ではなく、`Watcher.Process` の `EnsureAll` 呼び出し直後で行う。Store から Watcher への依存を増やさないため。Inspector の手動リビルドなど Watcher を通らない呼び出しの後は、要求が1回余分に出るが、H により参照の比較だけで終わる。
+- **C:** 同一セッション内のリロードで保存値が失われた、または復元に失敗した場合は、「次の削除時」ではなく**次の処理で全件確認**する。削除以外の未処理イベントも失われている可能性があるため。
+- **H:** 検証済みの記録は `useCache: true` の呼び出し（Watcher）でだけ行う。全件確認は `InvalidateAllCaches()` で D・H を捨ててから `useCache: true` で実行し、その結果を記録する。
+- **G:** アセット世代は、関係するパスに限らず、Postprocessor の呼び出しごとに加算する。
+- `Update All Materials` はインデックスの再構築と同じ走査でマテリアルを集める（キャンセル時は以前のインデックスを保持）。
+
+既知の制約（従来と同じ）:
+
+- Play モードの終了時に作り直されるシーン埋め込みマテリアルは、次にシーン走査、Inspector の表示、または Renderer の変更があるまで監視記録に載らない。保存済み `.mat` はインスタンス ID が変わらないため、影響しない。
