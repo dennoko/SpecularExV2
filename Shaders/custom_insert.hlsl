@@ -49,6 +49,28 @@ float3 DNKW_SafeNormalize(float3 v, float3 fallback)
     return len2 > 1e-8 ? v * rsqrt(len2) : fallback;
 }
 
+// Packed mask 2 holds a layer's mask AND the shared noise, and both usually keep the default tiling/offset
+// (1, 1, 0, 0), so within one hook several reads often hit the same uv. A hook keeps the last packed-2
+// sample and its tiling/offset in a DNKW_MaskCache and reuses it when the next read has the same _ST.
+// Everything involved is a material value, so the branch is uniform; a different _ST just samples again.
+struct DNKW_MaskCache
+{
+    float4 value;
+    float4 st;
+    bool   valid;
+};
+
+float4 DNKW_SampleMask2Cached(inout DNKW_MaskCache cache, float2 uv, float4 st)
+{
+    if (!cache.valid || any(st != cache.st))
+    {
+        cache.value = LIL_SAMPLE_2D(_CustomMaskPacked2, sampler_linear_repeat, uv * st.xy + st.zw);
+        cache.st    = st;
+        cache.valid = true;
+    }
+    return cache.value;
+}
+
 // Grazing-angle weight: 1 at strength 0, pow(1 - N.V, power) at strength 1. The default strength 0 skips
 // the pow (uniform branch; the result is identical).
 float DNKW_FresnelWeight(float nv, float strength, float power)

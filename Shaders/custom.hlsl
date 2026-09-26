@@ -155,6 +155,9 @@
 // grain from the one texture (e.g. breaking a highlight up into a rough surface). strength 0 skips the
 // sample (uniform branch).
 #define DNKW_APPLY_NOISE(v, st, strength) if ((strength) > 0.0) (v) *= lerp(1.0, DNKW_SAMPLE_MASK2(st).a, (strength));
+// Same, through a hook's packed-2 cache (DNKW_MaskCache in custom_insert.hlsl), for hooks that read packed 2
+// more than once: a noise with the same _ST as a mask read before (or after) costs no extra sample.
+#define DNKW_APPLY_NOISE_CACHED(v, st, strength, cache) if ((strength) > 0.0) (v) *= lerp(1.0, DNKW_SampleMask2Cached(cache, fd.uv0, st).a, (strength));
 
 // Rotates a world-space direction around the world Y axis (yaw), in degrees. 0 (the default) skips the
 // sincos.
@@ -237,10 +240,13 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //   clear coat      - F0 fixed at 0.04 and the base below darkened by the coat's Fresnel
 //   fresnel         - weights the highlight toward grazing angles
 // Strength 0 skips the layer: both the highlight and the clear coat darkening scale with strength.
+// The 2nd noise, the 3rd mask and the 3rd noise all read packed 2 and share one sample when their _ST match.
 #define BEFORE_REFLECTION \
+    { \
+    DNKW_MaskCache _sPk2 = (DNKW_MaskCache)0; \
     if (_CustomRefl2ndEnabled > 0.5 && _CustomRefl2ndStrength != 0.0 && DNKW_Refl2ndPassEnabled(_CustomRefl2ndApplyFA)) { \
         float _s2Mask = DNKW_SAMPLE_MASK(_CustomRefl2ndMaskTex_ST).r; \
-        DNKW_APPLY_NOISE(_s2Mask, _CustomRefl2ndNoiseST, _CustomRefl2ndNoiseStrength) \
+        DNKW_APPLY_NOISE_CACHED(_s2Mask, _CustomRefl2ndNoiseST, _CustomRefl2ndNoiseStrength, _sPk2) \
         DNKW_ApplySpecularLayer(fd, _s2Mask, \
             _CustomRefl2ndColor.rgb, _CustomRefl2ndStrength, _CustomRefl2ndMode, _CustomRefl2ndSmoothness, \
             _CustomRefl2ndMetallic, _CustomRefl2ndReflectance, _CustomRefl2ndNormalStrength, \
@@ -249,14 +255,15 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
             _CustomRefl2ndClearCoat, _CustomRefl2ndFresnelStrength, _CustomRefl2ndFresnelPower); \
     } \
     if (_CustomRefl3rdEnabled > 0.5 && _CustomRefl3rdStrength != 0.0 && DNKW_Refl2ndPassEnabled(_CustomRefl3rdApplyFA)) { \
-        float _s3Mask = DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r; \
-        DNKW_APPLY_NOISE(_s3Mask, _CustomRefl3rdNoiseST, _CustomRefl3rdNoiseStrength) \
+        float _s3Mask = DNKW_SampleMask2Cached(_sPk2, fd.uv0, _CustomRefl3rdMaskTex_ST).r; \
+        DNKW_APPLY_NOISE_CACHED(_s3Mask, _CustomRefl3rdNoiseST, _CustomRefl3rdNoiseStrength, _sPk2) \
         DNKW_ApplySpecularLayer(fd, _s3Mask, \
             _CustomRefl3rdColor.rgb, _CustomRefl3rdStrength, _CustomRefl3rdMode, _CustomRefl3rdSmoothness, \
             _CustomRefl3rdMetallic, _CustomRefl3rdReflectance, _CustomRefl3rdNormalStrength, \
             _CustomRefl3rdShadowAttenuation, _CustomRefl3rdMainColorStrength, \
             _CustomRefl3rdFakeLightBlend, _CustomRefl3rdFakeLightDir.xyz, _CustomRefl3rdEnableLighting, \
             _CustomRefl3rdClearCoat, _CustomRefl3rdFresnelStrength, _CustomRefl3rdFresnelPower); \
+    } \
     }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -311,14 +318,18 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // darkens with the world instead of glowing); Multiply (rim shade) is left untouched.
 // lilToon's Meta pass also expands this hook (twice); DNKW_PASS_META keeps the rim out of lightmap baking.
 // Strength 0 or color alpha 0 skips the layer (the blend amount would be 0).
+// The 2nd noise, the 3rd mask and the 3rd noise share packed-2 samples like the specular layers. The block
+// scopes the cache, since the Meta pass expands this hook twice in one function.
 #define BEFORE_EMISSION_1ST \
+    { \
+    DNKW_MaskCache _rPk2 = (DNKW_MaskCache)0; \
     if (DNKW_PASS_META == 0 && _CustomRim2ndEnabled > 0.5 && _CustomRim2ndStrength != 0.0 && _CustomRim2ndColor.a != 0.0) { \
         float3 _r2N     = normalize(lerp(fd.origN, fd.N, _CustomRim2ndNormalStrength)); \
         float  _r2Val   = pow(saturate(1.0 - saturate(dot(_r2N, fd.V))), _CustomRim2ndPower); \
         float  _r2Half  = _CustomRim2ndBlur * 0.5; \
         _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0, fwidth(_r2Val) + 1e-4)); \
         float  _r2Amt   = _r2Val * _CustomRim2ndStrength * _CustomRim2ndColor.a * DNKW_SAMPLE_MASK(_CustomRim2ndMaskTex_ST).g; \
-        DNKW_APPLY_NOISE(_r2Amt, _CustomRim2ndNoiseST, _CustomRim2ndNoiseStrength) \
+        DNKW_APPLY_NOISE_CACHED(_r2Amt, _CustomRim2ndNoiseST, _CustomRim2ndNoiseStrength, _rPk2) \
         _r2Amt *= lerp(1.0, fd.shadowmix, _CustomRim2ndShadowAttenuation); \
         float  _r2Up    = (_CustomRim2ndVerticalBias >= 0.0 ? _r2N.y : -_r2N.y) * 0.5 + 0.5; \
         _r2Amt *= lerp(1.0, _r2Up, abs(_CustomRim2ndVerticalBias)); \
@@ -333,8 +344,8 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float  _r3Val   = pow(saturate(1.0 - saturate(dot(_r3N, fd.V))), _CustomRim3rdPower); \
         float  _r3Half  = _CustomRim3rdBlur * 0.5; \
         _r3Val = saturate((_r3Val - (_CustomRim3rdBorder - _r3Half)) / max(_r3Half * 2.0, fwidth(_r3Val) + 1e-4)); \
-        float  _r3Amt   = _r3Val * _CustomRim3rdStrength * _CustomRim3rdColor.a * DNKW_SAMPLE_MASK2(_CustomRim3rdMaskTex_ST).g; \
-        DNKW_APPLY_NOISE(_r3Amt, _CustomRim3rdNoiseST, _CustomRim3rdNoiseStrength) \
+        float  _r3Amt   = _r3Val * _CustomRim3rdStrength * _CustomRim3rdColor.a * DNKW_SampleMask2Cached(_rPk2, fd.uv0, _CustomRim3rdMaskTex_ST).g; \
+        DNKW_APPLY_NOISE_CACHED(_r3Amt, _CustomRim3rdNoiseST, _CustomRim3rdNoiseStrength, _rPk2) \
         _r3Amt *= lerp(1.0, fd.shadowmix, _CustomRim3rdShadowAttenuation); \
         float  _r3Up    = (_CustomRim3rdVerticalBias >= 0.0 ? _r3N.y : -_r3N.y) * 0.5 + 0.5; \
         _r3Amt *= lerp(1.0, _r3Up, abs(_CustomRim3rdVerticalBias)); \
@@ -343,6 +354,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float3 _r3Color = _CustomRim3rdColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRim3rdMainColorStrength); \
         if (_CustomRim3rdBlendMode < 2.5) _r3Color = lerp(_r3Color, _r3Color * fd.lightColor, _CustomRim3rdEnableLighting); \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _r3Color, _r3Amt, _CustomRim3rdBlendMode); \
+    } \
     }
 
 //----------------------------------------------------------------------------------------------------------------------
