@@ -164,7 +164,7 @@ namespace Dennokoworks.SpecularExV2
             _texturesDeleted = false;
             if (timer != null) collectMs = timer.ElapsedMilliseconds;
 
-            try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true); }
+            try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true, useCache: true); }
             catch (System.Exception e) { Debug.LogException(e); }
 
             // The check may have assigned packed textures; record the result so the change events
@@ -292,7 +292,12 @@ namespace Dennokoworks.SpecularExV2
                 bool queued = false;
                 foreach (var path in imported)
                 {
-                    if (SpecularExPackedMaskStore.IsGeneratedPath(path)) continue;
+                    if (SpecularExPackedMaskStore.IsGeneratedPath(path))
+                    {
+                        // Our own writes and manual edits alike: re-verify its import settings next time.
+                        SpecularExPackedMaskStore.InvalidateImportSettings(path);
+                        continue;
+                    }
                     string ext = Path.GetExtension(path);
                     // .asset can be either, so it is checked both ways.
                     if (MaterialContainerExtensions.Contains(ext))
@@ -306,9 +311,14 @@ namespace Dennokoworks.SpecularExV2
                         queued = true;
                     }
                 }
-                // Moves keep the GUID and contents, so they do not change any packed mask.
+                // Moves keep the GUID and contents, so they do not change any packed mask. They can
+                // still move a generated file or the shaders, which the cached lookups depend on.
+                if (deleted.Length > 0 || moved.Length > 0) SpecularExPackedMaskStore.InvalidateShaderFolder();
+                foreach (var path in moved) SpecularExPackedMaskStore.InvalidateImportSettings(path);
+                foreach (var path in movedFrom) SpecularExPackedMaskStore.InvalidateImportSettings(path);
                 foreach (var path in deleted)
                 {
+                    SpecularExPackedMaskStore.InvalidateImportSettings(path);
                     if (SpecularExPackedMaskStore.IsGeneratedPath(path)
                         || TextureExtensions.Contains(Path.GetExtension(path)))
                     {

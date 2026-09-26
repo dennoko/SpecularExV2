@@ -41,6 +41,9 @@ namespace Dennokoworks.SpecularExV2
         //   persist: save changed .mat assets right away, so the reference survives reloads/reimports.
         //            Builds pass false to avoid saving (and reimporting) assets mid-build.
         //   rebake:  regenerate the files even if they exist (manual repair).
+        //   useCache: skip re-checking what this editor session already verified (import settings of
+        //            generated files). Only the watcher passes true; builds, manual repair and menu
+        //            commands always verify everything. Ignored when rebake is set.
         // Returns false if any material could not be brought up to date; the reason is logged and the
         // material keeps its previous packed texture.
         struct MaterialPackPlan
@@ -67,14 +70,14 @@ namespace Dennokoworks.SpecularExV2
         static readonly ProfilerMarker AssignMarker = new ProfilerMarker("SpecularExV2.EnsureAll.Assign");
         static readonly ProfilerMarker GetStateMarker = new ProfilerMarker("SpecularExV2.GetState");
 
-        public static bool EnsureAll(IEnumerable<Material> materials, bool persist, bool rebake = false)
+        public static bool EnsureAll(IEnumerable<Material> materials, bool persist, bool rebake = false, bool useCache = false)
         {
             LastStats = default;
             using (EnsureAllMarker.Auto())
-                return EnsureAllCore(materials, persist, rebake);
+                return EnsureAllCore(materials, persist, rebake, useCache && !rebake);
         }
 
-        static bool EnsureAllCore(IEnumerable<Material> materials, bool persist, bool rebake)
+        static bool EnsureAllCore(IEnumerable<Material> materials, bool persist, bool rebake, bool useCache)
         {
             var plans = new List<MaterialPackPlan>();
             var seen = new HashSet<Material>();
@@ -148,7 +151,7 @@ namespace Dennokoworks.SpecularExV2
             foreach (var plan in plans)
                 if (plan.path != null) paths.Add(plan.path);
             using (ImportSettingsMarker.Auto())
-                EnsureImportSettings(paths);
+                EnsureImportSettings(paths, written, useCache);
 
             // Pass 2: assign. Only materials whose reference actually changes are touched.
             var changedMaterials = new HashSet<Material>();
@@ -367,22 +370,42 @@ namespace Dennokoworks.SpecularExV2
             ("iPhone", TextureImporterFormat.ASTC_6x6),
         };
 
+        // Generated files whose importer was confirmed to match during this domain. Any import, deletion
+        // or move of a generated file removes its entry (InvalidateImportSettings, from the watcher's
+        // postprocessor), so a manual change of the settings is repaired on the next check.
+        static readonly HashSet<string> _verifiedImportSettings = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+        public static void InvalidateImportSettings(string path)
+        {
+            if (!string.IsNullOrEmpty(path)) _verifiedImportSettings.Remove(path.Replace('\\', '/'));
+        }
+
         // Reimports only the files whose importer differs, so it is a no-op once the settings are in
         // the .meta. A new file is imported once with defaults first and once more here.
-        static void EnsureImportSettings(IEnumerable<string> paths)
+        //   written:  files written by this call; always checked.
+        //   useCache: skip files already verified in this domain.
+        // Returns the paths whose settings could not be confirmed (no importer, or still different
+        // after the reimport).
+        static HashSet<string> EnsureImportSettings(IEnumerable<string> paths, HashSet<string> written, bool useCache)
         {
+            var failed = new HashSet<string>();
+            var matched = new List<string>();
+            var reimported = new List<string>();
             bool editing = false;
             try
             {
                 foreach (var path in paths)
                 {
-                    if (!(AssetImporter.GetAtPath(path) is TextureImporter ti) || !ApplyImportSettings(ti)) continue;
+                    if (useCache && !written.Contains(path) && _verifiedImportSettings.Contains(path)) continue;
+                    if (!(AssetImporter.GetAtPath(path) is TextureImporter ti)) { failed.Add(path); continue; }
+                    if (!ApplyImportSettings(ti, apply: true)) { matched.Add(path); continue; }
                     if (!editing)
                     {
                         AssetDatabase.StartAssetEditing();
                         editing = true;
                     }
                     ti.SaveAndReimport();
+                    reimported.Add(path);
                     LastStats.reimported++;
                 }
             }
@@ -390,6 +413,17 @@ namespace Dennokoworks.SpecularExV2
             {
                 if (editing) AssetDatabase.StopAssetEditing();
             }
+
+            // Recorded only after the imports ran: the postprocessor invalidates the reimported paths.
+            foreach (var path in reimported)
+            {
+                if (AssetImporter.GetAtPath(path) is TextureImporter ti && !ApplyImportSettings(ti, apply: false))
+                    matched.Add(path);
+                else
+                    failed.Add(path);
+            }
+            foreach (var path in matched) _verifiedImportSettings.Add(path);
+            return failed;
         }
 
         // The packed channels are four unrelated linear masks:
@@ -397,14 +431,14 @@ namespace Dennokoworks.SpecularExV2
         //   * BC7 on PC rather than DXT5: DXT5 fits RGB to one line per 4x4 block, bleeding the
         //     independent R/G/B masks into each other. ASTC on mobile, which has no BC7.
         //   * Mipmaps + streaming for VRChat's texture memory budget; no CPU copy.
-        // Returns true if anything had to be changed.
-        static bool ApplyImportSettings(TextureImporter ti)
+        // Returns true if anything differs. apply: false only compares and leaves the importer untouched.
+        static bool ApplyImportSettings(TextureImporter ti, bool apply)
         {
             bool changed = false;
             void Set<T>(T current, T target, System.Action<T> set)
             {
                 if (EqualityComparer<T>.Default.Equals(current, target)) return;
-                set(target);
+                if (apply) set(target);
                 changed = true;
             }
 
@@ -428,12 +462,13 @@ namespace Dennokoworks.SpecularExV2
                 if (s.overridden && s.format == format && s.maxTextureSize == ImportMaxSize
                     && s.compressionQuality == (int)TextureCompressionQuality.Normal)
                     continue;
+                changed = true;
+                if (!apply) continue;
                 s.overridden = true;
                 s.format = format;
                 s.maxTextureSize = ImportMaxSize;
                 s.compressionQuality = (int)TextureCompressionQuality.Normal;
                 ti.SetPlatformTextureSettings(s);
-                changed = true;
             }
             return changed;
         }
@@ -456,12 +491,19 @@ namespace Dennokoworks.SpecularExV2
             return paths;
         }
 
-        // Folder of the SpecularExV2 shaders ("…/Shaders/"), or null if they cannot be located.
+        // Folder of the SpecularExV2 shaders ("…/Shaders/"), or null if they cannot be located. Cached
+        // (only when found); the watcher calls InvalidateShaderFolder when assets are moved or deleted.
+        static string _shaderFolder;
+
+        public static void InvalidateShaderFolder() => _shaderFolder = null;
+
         static string ShaderFolder()
         {
+            if (_shaderFolder != null) return _shaderFolder;
             string path = AssetDatabase.GUIDToAssetPath(ShaderAssetGuid);
             if (string.IsNullOrEmpty(path)) path = AssetDatabase.GetAssetPath(Shader.Find(SpecularExMaskPacker.ShaderNameRoot + "/lilToon"));
-            return string.IsNullOrEmpty(path) ? null : Path.GetDirectoryName(path).Replace('\\', '/') + "/";
+            if (string.IsNullOrEmpty(path)) return null;
+            return _shaderFolder = Path.GetDirectoryName(path).Replace('\\', '/') + "/";
         }
 
         // Whether a file whose direct dependencies are `dependencies` may hold a SpecularExV2 material.
