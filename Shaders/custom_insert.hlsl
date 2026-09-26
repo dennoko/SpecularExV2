@@ -20,6 +20,10 @@
 // Normal Map 3rd composites in tangent space, so the TBN must reach the fragment shader.
 #define LIL_V2F_FORCE_TANGENT
 #define LIL_V2F_FORCE_BITANGENT
+// ...and the vertex input must carry the tangent the v2f copies (lil_common_appdata.hlsl is included by
+// the pass file, after this one). Without it the lilToonMulti variants without a normal-map keyword fail
+// to compile ("invalid subscript 'tangentOS'").
+#define LIL_REQUIRE_APP_TANGENT
 
 // Pass flags usable from the hook macros (macros are expanded after this file, so they resolve here).
 // Branching on these constants is folded away by the compiler.
