@@ -15,6 +15,10 @@ namespace Dennokoworks.SpecularExV2
     // Materials are collected from renderers AND animation clips, so materials that are only swapped
     // in by animation are covered too. A material that cannot be packed aborts the upload instead of
     // shipping white or stale masks.
+    //
+    // With NDMF installed, SpecularExV2NDMFPlugin has already replaced the avatar's materials by packed
+    // clones without their source slots (tagged SpecularExPackedMaskStore.SourcesStrippedTag); EnsureAll
+    // keeps their packed masks as they are.
     public class SpecularExPackedMaskBuildHook : IVRCSDKPreprocessAvatarCallback
     {
         // After NDMF (-11000, optimizing at -1025) and Modular Avatar, before lilToon (100), which

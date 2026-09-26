@@ -71,6 +71,9 @@ namespace Dennokoworks.SpecularExV2
 
                         if (!SpecularExMaskPacker.NeedsPacking(m, p))
                         {
+                            // A build clone whose slots were stripped keeps whatever was packed (or dropped)
+                            // before stripping; there is nothing left to pack it from.
+                            if (AreSourcesStripped(m)) continue;
                             plans.Add(new MaterialPackPlan { material = m, packIndex = p, path = null });
                             continue;
                         }
@@ -153,6 +156,41 @@ namespace Dennokoworks.SpecularExV2
                 }
             }
             return ok;
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  Build-time stripping of the source slots
+        // ------------------------------------------------------------------------------------------
+
+        // Material tag set on build clones whose source mask slots were cleared (NDMF plugin). A tag is
+        // serialized with the material, so it survives NDMF's asset saving, a manual bake and domain
+        // reloads, and needs no shader property.
+        public const string SourcesStrippedTag = "SpecularExV2MaskSourcesStripped";
+
+        public static bool AreSourcesStripped(Material m)
+            => m != null && m.GetTag(SourcesStrippedTag, false, "") == "1";
+
+        // Clears every authoring-only mask slot so the build no longer depends on the source images, and
+        // marks the material so EnsureAll keeps its packed masks instead of clearing them. Only for build
+        // clones: the packed masks must already be assigned (see ArePacksAssigned). SetTexture(null) keeps
+        // the slot's tiling/offset, which the shader still uses to sample the packed channels.
+        public static void StripSources(Material m)
+        {
+            foreach (var prop in SpecularExMaskPacker.AllSourceProps)
+                if (m.HasProperty(prop)) m.SetTexture(prop, null);
+            m.SetOverrideTag(SourcesStrippedTag, "1");
+        }
+
+        // Every pack that has inputs references a generated texture.
+        public static bool ArePacksAssigned(Material m)
+        {
+            for (int p = 0; p < SpecularExMaskPacker.Packs.Length; p++)
+            {
+                string prop = SpecularExMaskPacker.Packs[p].prop;
+                if (!m.HasProperty(prop) || !SpecularExMaskPacker.NeedsPacking(m, p)) continue;
+                if (m.GetTexture(prop) == null) return false;
+            }
+            return true;
         }
 
         public enum PackState

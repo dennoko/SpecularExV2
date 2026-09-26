@@ -1,0 +1,27 @@
+{
+    "name": "SpecularExV2.NDMF.Editor",
+    "rootNamespace": "",
+    "references": [
+        "SpecularExV2.Editor",
+        "nadena.dev.ndmf"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "SPECULAREXV2_HAS_NDMF"
+    ],
+    "versionDefines": [
+        {
+            "name": "nadena.dev.ndmf",
+            "expression": "1.7.10",
+            "define": "SPECULAREXV2_HAS_NDMF"
+        }
+    ],
+    "noEngineReferences": false
+}

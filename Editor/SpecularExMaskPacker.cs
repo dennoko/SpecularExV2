@@ -67,6 +67,43 @@ namespace Dennokoworks.SpecularExV2
 
         public static readonly string[] SourceProps = AllSourceProps;
 
+        // Effective enable flag (_Custom*Enabled, what the shader reads) of the feature sampling each
+        // channel, in pack/channel order. null = the shared noise, which is read by NoiseUsers instead.
+        static readonly string[][] ChannelUsers =
+        {
+            new[] { "_CustomRefl2ndEnabled", "_CustomRim2ndEnabled", "_CustomNormal3rdEnabled", "_CustomMatcapEnabled" },
+            new[] { "_CustomRefl3rdEnabled", "_CustomRim3rdEnabled", "_CustomNormal4thEnabled", null },
+        };
+
+        // Layers that can multiply their mask by the shared noise: (enable flag, noise strength).
+        static readonly (string enabled, string strength)[] NoiseUsers =
+        {
+            ("_CustomRefl2ndEnabled", "_CustomRefl2ndNoiseStrength"),
+            ("_CustomRefl3rdEnabled", "_CustomRefl3rdNoiseStrength"),
+            ("_CustomMatcapEnabled",  "_CustomMatcapNoiseStrength"),
+            ("_CustomRim2ndEnabled",  "_CustomRim2ndNoiseStrength"),
+            ("_CustomRim3rdEnabled",  "_CustomRim3rdNoiseStrength"),
+        };
+
+        // Whether the shader can sample the given pack with the material's current values.
+        //   isAnimated: property name -> true if an animation may change it at runtime; such values are
+        //               treated as "possibly on". null = nothing is animated.
+        public static bool IsPackUsed(Material m, int packIndex, System.Func<string, bool> isAnimated = null)
+        {
+            bool On(string prop) => m.HasProperty(prop)
+                                    && (m.GetFloat(prop) > 0.5f || (isAnimated != null && isAnimated(prop)));
+            bool Positive(string prop) => m.HasProperty(prop)
+                                          && (m.GetFloat(prop) > 0f || (isAnimated != null && isAnimated(prop)));
+
+            foreach (var enabled in ChannelUsers[packIndex])
+            {
+                if (enabled != null) { if (On(enabled)) return true; continue; }
+                foreach (var (e, strength) in NoiseUsers)
+                    if (On(e) && Positive(strength)) return true;
+            }
+            return false;
+        }
+
         // Bump when the produced pixels change for identical inputs (shader, size rule, encoding),
         // so previously generated files are no longer considered up to date.
         public const int Version = 1;
