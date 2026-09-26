@@ -117,6 +117,9 @@
         // +: upward-facing surfaces only, -: downward-facing only, 0: no restriction (world up).
         _CustomRim2ndVerticalBias ("Rim Light 2nd Vertical Bias", Range(-1, 1)) = 0
         _CustomRim2ndBacklight ("Rim Light 2nd Backlight Boost", Range(0, 4)) = 0
+        // Tints the rim by the light color (not in Multiply mode). 1 like lilToon's _RimEnableLighting, so the
+        // rim does not glow in dark worlds; 0 keeps the old emissive-looking rim.
+        _CustomRim2ndEnableLighting ("Rim Light 2nd Enable Lighting", Range(0, 1)) = 1
         _CustomRim2ndBlendMode ("Rim Light 2nd Blend Mode", Float) = 1
         _CustomRim2ndNormalStrength ("Rim Light 2nd Normal Strength", Range(0, 1)) = 1
         _CustomRim2ndShadowAttenuation ("Rim Light 2nd Shadow Attenuation", Range(0, 1)) = 0

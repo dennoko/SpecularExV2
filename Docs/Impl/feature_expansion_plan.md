@@ -298,9 +298,9 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 - [x] **Phase A: 互換に影響しない追加（ALU のみ）**
   - スペキュラー §1.1〜1.3、MatCap §2.1・§2.3・§2.4、ノーマル §3.1・§3.2、リム §4.2〜4.4
   - プロパティ、HLSL、インスペクター、ローカライズを一括で
-- [ ] **Phase B: 見た目が変わる変更**
+- [x] **Phase B: 見た目が変わる変更**
   - リム §4.1（既定値 1）
-  - リリースノートの文案作成
+  - リリースノートの文案作成（[release_notes_draft.md](release_notes_draft.md)）
 - [ ] **Phase C: MatCap 1枚テクスチャ化と移行**
   - シェーダー側の Back 削除と Layout 実装
   - `SpecularExMatcapAtlasBaker` と移行 UI、ビルドフックでの警告

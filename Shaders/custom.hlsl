@@ -88,6 +88,7 @@
     float  _CustomRim2ndBlur; \
     float  _CustomRim2ndVerticalBias; \
     float  _CustomRim2ndBacklight; \
+    float  _CustomRim2ndEnableLighting; \
     float  _CustomRim2ndBlendMode; \
     float  _CustomRim2ndNormalStrength; \
     float  _CustomRim2ndShadowAttenuation; \
@@ -255,6 +256,8 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // Direction without light dependence: VerticalBias restricts the rim to up- (+) or down-facing (-)
 // surfaces against WORLD up. Backlight boosts the rim when the light is behind the surface (V.L -> -1);
 // in worlds without a directional light fd.L is lilToon's SH direction.
+// Enable lighting tints the rim by fd.lightColor like lilToon's _RimEnableLighting (default 1, so the rim
+// darkens with the world instead of glowing); Multiply (rim shade) is left untouched.
 // lilToon's Meta pass also expands this hook (twice); DNKW_PASS_META keeps the rim out of lightmap baking.
 #define BEFORE_EMISSION_1ST \
     if (DNKW_PASS_META == 0 && _CustomRim2ndEnabled > 0.5) { \
@@ -269,6 +272,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float  _r2Back  = saturate(-fd.vl); \
         _r2Amt  = saturate(_r2Amt * (1.0 + _CustomRim2ndBacklight * _r2Back * _r2Back)); \
         float3 _r2Color = _CustomRim2ndColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRim2ndMainColorStrength); \
+        if (_CustomRim2ndBlendMode < 2.5) _r2Color = lerp(_r2Color, _r2Color * fd.lightColor, _CustomRim2ndEnableLighting); \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _r2Color, _r2Amt, _CustomRim2ndBlendMode); \
     }
 

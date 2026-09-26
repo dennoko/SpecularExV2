@@ -95,6 +95,7 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRim2ndBorder;
         MaterialProperty _CustomRim2ndVerticalBias;
         MaterialProperty _CustomRim2ndBacklight;
+        MaterialProperty _CustomRim2ndEnableLighting;
         MaterialProperty _CustomRim2ndBlendMode;
         MaterialProperty _CustomRim2ndNormalStrength;
         MaterialProperty _CustomRim2ndShadowAttenuation;
@@ -208,6 +209,7 @@ namespace Dennokoworks.SpecularExV2
             _CustomRim2ndBorder = FindProperty("_CustomRim2ndBorder", props, false);
             _CustomRim2ndVerticalBias = FindProperty("_CustomRim2ndVerticalBias", props, false);
             _CustomRim2ndBacklight = FindProperty("_CustomRim2ndBacklight", props, false);
+            _CustomRim2ndEnableLighting = FindProperty("_CustomRim2ndEnableLighting", props, false);
             _CustomRim2ndBlendMode           = FindProperty("_CustomRim2ndBlendMode",           props, false);
             _CustomRim2ndNormalStrength      = FindProperty("_CustomRim2ndNormalStrength",      props, false);
             _CustomRim2ndShadowAttenuation   = FindProperty("_CustomRim2ndShadowAttenuation",   props, false);
@@ -746,6 +748,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRim2ndShadowAttenuation, _CustomRim2ndMainColorStrength,
                 _CustomRim2ndMaskTex,           _CustomRim2ndBorder,
                 _CustomRim2ndVerticalBias,      _CustomRim2ndBacklight,
+                _CustomRim2ndEnableLighting,
             });
             if (!_foldRim2nd) return;
 
@@ -757,6 +760,7 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRim2ndColor,    Loc("label_color"));
                 Prop(_CustomRim2ndStrength, Loc("label_strength"));
                 PopupProp(_CustomRim2ndBlendMode, Loc("label_blend_mode"), BlendModes());
+                Prop(_CustomRim2ndEnableLighting, Loc("label_enable_lighting"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRim2ndPower,  Loc("label_power"));
                 Prop(_CustomRim2ndBorder, Loc("label_border"));
