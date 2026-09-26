@@ -69,11 +69,11 @@
         // World-Oriented Dual-Hemisphere MatCap
         [HideInInspector] _CustomMatcapUIEnabled ("Enable World MatCap", Float) = 0
         _CustomMatcapEnabled ("Enable World MatCap", Float) = 0
-        [NoScaleOffset] _CustomMatcapFrontTex ("World MatCap Front (+Z)", 2D) = "black" {}
-        [NoScaleOffset] _CustomMatcapBackTex ("World MatCap Back (-Z)", 2D) = "black" {}
-        // Effective flag: 1 only when a Back texture is assigned (set by the inspector). With 0 the Front
-        // texture is mirrored onto the back hemisphere, so a single matcap already works.
-        [HideInInspector] _CustomMatcapBackEnabled ("World MatCap Use Back Texture", Float) = 0
+        // The only matcap texture (name kept so existing assignments survive; the old separate Back slot is
+        // gone). Layout 0 = one image, mirrored onto the back hemisphere; 1 = side by side, left half =
+        // front (+Z), right half = back (-Z). View mode uses the whole image / the left half.
+        [NoScaleOffset] _CustomMatcapFrontTex ("World MatCap Texture", 2D) = "black" {}
+        _CustomMatcapLayout ("World MatCap Layout", Float) = 0
         [HDR] _CustomMatcapColor ("World MatCap Color", Color) = (1, 1, 1, 1)
         _CustomMatcapAlpha ("World MatCap Strength", Range(0, 1)) = 1
         _CustomMatcapBlendMode ("World MatCap Blend Mode", Float) = 1

@@ -301,7 +301,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 - [x] **Phase B: 見た目が変わる変更**
   - リム §4.1（既定値 1）
   - リリースノートの文案作成（[release_notes_draft.md](release_notes_draft.md)）
-- [ ] **Phase C: MatCap 1枚テクスチャ化と移行**
+- [x] **Phase C: MatCap 1枚テクスチャ化と移行**
   - シェーダー側の Back 削除と Layout 実装
   - `SpecularExMatcapAtlasBaker` と移行 UI、ビルドフックでの警告
 - [ ] **Phase D: 検証**

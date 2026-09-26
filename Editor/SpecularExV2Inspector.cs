@@ -57,8 +57,7 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapUIEnabled;
         MaterialProperty _CustomMatcapEnabled;
         MaterialProperty _CustomMatcapFrontTex;
-        MaterialProperty _CustomMatcapBackTex;
-        MaterialProperty _CustomMatcapBackEnabled;
+        MaterialProperty _CustomMatcapLayout;
         MaterialProperty _CustomMatcapColor;
         MaterialProperty _CustomMatcapAlpha;
         MaterialProperty _CustomMatcapBlendMode;
@@ -173,8 +172,7 @@ namespace Dennokoworks.SpecularExV2
             _CustomMatcapUIEnabled           = FindProperty("_CustomMatcapUIEnabled",           props, false);
             _CustomMatcapEnabled             = FindProperty("_CustomMatcapEnabled",             props, false);
             _CustomMatcapFrontTex            = FindProperty("_CustomMatcapFrontTex",            props, false);
-            _CustomMatcapBackTex             = FindProperty("_CustomMatcapBackTex",             props, false);
-            _CustomMatcapBackEnabled         = FindProperty("_CustomMatcapBackEnabled",         props, false);
+            _CustomMatcapLayout              = FindProperty("_CustomMatcapLayout",              props, false);
             _CustomMatcapColor               = FindProperty("_CustomMatcapColor",               props, false);
             _CustomMatcapAlpha               = FindProperty("_CustomMatcapAlpha",               props, false);
             _CustomMatcapBlendMode           = FindProperty("_CustomMatcapBlendMode",           props, false);
@@ -279,8 +277,6 @@ namespace Dennokoworks.SpecularExV2
                 SyncEffectiveEnabled(m, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    "_CustomMatcapFrontTex");
                 SyncEffectiveEnabled(m, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", "_CustomNormal3rdTex");
                 SyncEffectiveEnabled(m, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    null);
-                // Back hemisphere: its own texture when assigned, otherwise the mirrored front texture.
-                SyncEffectiveEnabled(m, "_CustomMatcapBackEnabled", null,                       "_CustomMatcapBackTex");
             }
 
             SyncPropertyEffective(_CustomRefl2ndEnabled,   _CustomRefl2ndUIEnabled,   null);
@@ -288,12 +284,6 @@ namespace Dennokoworks.SpecularExV2
             SyncPropertyEffective(_CustomMatcapEnabled,    _CustomMatcapUIEnabled,    _CustomMatcapFrontTex);
             SyncPropertyEffective(_CustomNormal3rdEnabled, _CustomNormal3rdUIEnabled, _CustomNormal3rdTex);
             SyncPropertyEffective(_CustomRim2ndEnabled,    _CustomRim2ndUIEnabled,    null);
-            if (_CustomMatcapBackEnabled != null && _CustomMatcapBackTex != null)
-            {
-                float target = _CustomMatcapBackTex.textureValue != null ? 1f : 0f;
-                if (_CustomMatcapBackEnabled.floatValue != target)
-                    _CustomMatcapBackEnabled.floatValue = target;
-            }
         }
 
         static void SyncPropertyEffective(MaterialProperty enabledProp, MaterialProperty uiProp, MaterialProperty texProp)
@@ -647,7 +637,7 @@ namespace Dennokoworks.SpecularExV2
             _foldMatcap = Foldout(Loc("foldout_matcap"), _foldMatcap);
             DrawSectionMenu(new[] {
                 _CustomMatcapUIEnabled,         _CustomMatcapEnabled,
-                _CustomMatcapFrontTex,          _CustomMatcapBackTex,        _CustomMatcapBackEnabled,
+                _CustomMatcapFrontTex,          _CustomMatcapLayout,
                 _CustomMatcapColor,             _CustomMatcapAlpha,
                 _CustomMatcapBlendMode,         _CustomMatcapBlur,
                 _CustomMatcapWorldFixed,        _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
@@ -668,12 +658,15 @@ namespace Dennokoworks.SpecularExV2
                 // them is hidden while it matters.
                 bool hemisphere = IsOnOrMixed(_CustomMatcapWorldFixed);
                 lilEditorGUI.DrawLine();
-                Prop(_CustomMatcapFrontTex, Loc(hemisphere ? "label_front_tex" : "label_texture"));
-                if (hemisphere) Prop(_CustomMatcapBackTex, Loc("label_back_tex"));
+                Prop(_CustomMatcapFrontTex, Loc("label_texture"));
+                PopupProp(_CustomMatcapLayout, Loc("label_matcap_layout"), new[] { Loc("layout_single"), Loc("layout_side_by_side") });
                 if (_CustomMatcapFrontTex != null && _CustomMatcapFrontTex.textureValue == null && !_CustomMatcapFrontTex.hasMixedValue)
                     EditorGUILayout.HelpBox(Loc("help_matcap_front_missing"), MessageType.Info);
-                else if (hemisphere && _CustomMatcapBackTex != null && _CustomMatcapBackTex.textureValue == null && !_CustomMatcapBackTex.hasMixedValue)
-                    EditorGUILayout.HelpBox(Loc("help_matcap_back"), MessageType.None);
+                else if (_CustomMatcapLayout != null && !_CustomMatcapLayout.hasMixedValue)
+                    EditorGUILayout.HelpBox(Loc(IsOn(_CustomMatcapLayout)
+                        ? (hemisphere ? "help_matcap_side_by_side" : "help_matcap_side_by_side_view")
+                        : (hemisphere ? "help_matcap_single" : "help_matcap_single_view")), MessageType.None);
+                DrawLegacyMatcapMigration();
                 Prop(_CustomMatcapColor, Loc("label_color"));
                 Prop(_CustomMatcapAlpha, Loc("label_alpha"));
                 PopupProp(_CustomMatcapBlendMode, Loc("label_blend_mode"), BlendModes());
@@ -697,6 +690,21 @@ namespace Dennokoworks.SpecularExV2
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
+        }
+
+        // Materials saved before the MatCap Back slot was removed still carry that texture in their saved
+        // properties; offer to combine it with the front texture into one side-by-side image.
+        void DrawLegacyMatcapMigration()
+        {
+            var legacy = new List<Material>();
+            foreach (var t in m_MaterialEditor.targets)
+                if (t is Material m && SpecularExMatcapAtlasBaker.HasLegacyBackTexture(m)) legacy.Add(m);
+            if (legacy.Count == 0) return;
+
+            EditorGUILayout.HelpBox(Loc("help_matcap_legacy_back"), MessageType.Warning);
+            // Deferred out of OnGUI because it writes and imports assets.
+            if (GUILayout.Button(Loc("button_matcap_bake_atlas")))
+                EditorApplication.delayCall += () => { foreach (var m in legacy) SpecularExMatcapAtlasBaker.Migrate(m); };
         }
 
         // -- Normal Map 3rd --

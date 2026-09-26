@@ -71,7 +71,8 @@
     float  _CustomMatcapFresnelPower; \
     float4 _CustomMatcapHSVG; \
     float  _CustomMatcapMainColorStrength; \
-    float  _CustomMatcapBackEnabled; \
+    float  _CustomMatcapLayout; \
+    float4 _CustomMatcapFrontTex_TexelSize; \
     float  _CustomMatcapEnabled; \
     float4 _CustomMatcapMaskTex_ST; \
     float4 _CustomNormal3rdTex_ST; \
@@ -104,12 +105,12 @@
 //       Packed 1: R = Specular 2nd   G = Rim Light 2nd   B = Normal Map 3rd   A = World MatCap
 //       Packed 2: R = Specular 3rd
 //     Each channel is still sampled with its own mask slot's tiling/offset, so nothing is lost.
+//     The two matcap hemispheres share ONE texture (side-by-side layout) instead of two slots.
 #define LIL_CUSTOM_TEXTURES \
     TEXTURE2D(_CustomMaskPacked); \
     TEXTURE2D(_CustomMaskPacked2); \
     TEXTURE2D(_CustomNormal3rdTex); \
-    TEXTURE2D(_CustomMatcapFrontTex); \
-    TEXTURE2D(_CustomMatcapBackTex);
+    TEXTURE2D(_CustomMatcapFrontTex);
 
 // Add vertex copy
 #define LIL_CUSTOM_VERT_COPY
@@ -212,8 +213,10 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //----------------------------------------------------------------------------------------------------------------------
 // (3) BEFORE_RIMLIGHT - MatCap 2nd (optionally World-Oriented Dual-Hemisphere)
 //
-// _CustomMatcapWorldFixed = 0 (default): an ordinary view-space matcap, sampled from the Front texture
-//   with lilToon's head-centered camera matrix (same UV as fd.uvMat, VR-stereo safe).
+// One texture only (_CustomMatcapFrontTex): _CustomMatcapLayout 0 = a single image (mirrored onto the back
+// hemisphere), 1 = side by side (left half = front +Z, right half = back -Z). See DNKW_SampleMatcapHalf.
+// _CustomMatcapWorldFixed = 0 (default): an ordinary view-space matcap (whole image, or the left half with
+//   layout 1) with lilToon's head-centered camera matrix (same UV as fd.uvMat, VR-stereo safe).
 // _CustomMatcapWorldFixed = 1: the texture is looked up with the WORLD-space reflection vector
 //   R = reflect(-V, N), optionally rotated around world Y (yaw). The highlight therefore stays fixed to the
 //   world while the camera or the avatar turns — a lightweight pseudo cubemap made of two hemispheres
@@ -232,9 +235,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
             float3 _wmR = reflect(-fd.V, _wmN); \
             if (_CustomMatcapWorldFixed > 1.5) _wmR = lilTransformDirWStoOS(_wmR, true); \
             _wmR = DNKW_RotateYaw(_wmR, _CustomMatcapWorldRotation); \
-            _wmTex = DNKW_SampleWorldMatcap(_wmR, _CustomMatcapBackEnabled, _CustomMatcapBlur); \
+            _wmTex = DNKW_SampleWorldMatcap(_wmR, _CustomMatcapLayout, _CustomMatcapBlur); \
         } else { \
-            _wmTex = DNKW_SampleViewMatcap(mul(fd.cameraMatrix, _wmN).xy * 0.5 + 0.5, _CustomMatcapBlur); \
+            _wmTex = DNKW_SampleViewMatcap(mul(fd.cameraMatrix, _wmN).xy * 0.5 + 0.5, _CustomMatcapLayout, _CustomMatcapBlur); \
         } \
         float3 _wmRGB = DNKW_ToneCorrection(_wmTex.rgb, _CustomMatcapHSVG); \
         _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \
