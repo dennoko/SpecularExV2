@@ -263,8 +263,17 @@ Shaders/
 ├── lilCustomShaderProperties.lilblock # マテリアルプロパティ定義
 ├── lilCustomShaderInsert.lilblock  # custom_insert.hlsl のインクルード
 ├── SpecularEx_MaskPacker.shader    # マスクパッキング用 Blit シェーダー
-└── lts*.lilcontainer               # 各描画モード（Opaque, Cutout, Trans 等）
+└── lts*.lilcontainer               # 各描画モード（下記の同梱バリエーションのみ）
 ```
+
+同梱するバリエーションは次のとおり（各パス用の `ltspass_opaque / cutout / transparent` と `ltspass_tess_*` を含む）。
+
+| 系統 | 描画モード | アウトライン版 |
+|---|---|---|
+| 通常 | 不透明（`lts`）/ カットアウト / 半透明（通常・1パス・2パス） | あり（`*_o`） |
+| テッセレーション | 不透明 / カットアウト / 半透明（通常・1パス・2パス） | あり（`*_o`） |
+
+Lite / Multi / OutlineOnly / 屈折 / ファー / 宝石 / FakeShadow / Overlay は同梱しない。lilToon の描画モード UI でこれらを選んだ場合は、Inspector（`ReplaceToCustomShaders`）が最も近い同梱シェーダーを割り当てる（例: Lite → 通常版、屈折・宝石 → 半透明）。
 
 ### 4.2 フックポイントの配置と順序
 lilToon のフラグメントシェーダーパイプラインに対して、以下の順序でフックを挿入します。
