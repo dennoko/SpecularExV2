@@ -69,6 +69,7 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapEnableLighting;
         MaterialProperty _CustomMatcapShadowStrength;
         MaterialProperty _CustomMatcapDisableBackface;
+        MaterialProperty _CustomMatcapApplyFA;
         MaterialProperty _CustomMatcapHSVG;
         MaterialProperty _CustomMatcapMainColorStrength;
         MaterialProperty _CustomMatcapMaskTex;
@@ -220,6 +221,7 @@ namespace Dennokoworks.SpecularExV2
             _CustomMatcapEnableLighting      = FindProperty("_CustomMatcapEnableLighting",      props, false);
             _CustomMatcapShadowStrength      = FindProperty("_CustomMatcapShadowStrength",      props, false);
             _CustomMatcapDisableBackface     = FindProperty("_CustomMatcapDisableBackface",     props, false);
+            _CustomMatcapApplyFA             = FindProperty("_CustomMatcapApplyFA",             props, false);
             _CustomMatcapHSVG = FindProperty("_CustomMatcapHSVG", props, false);
             _CustomMatcapMainColorStrength = FindProperty("_CustomMatcapMainColorStrength", props, false);
             _CustomMatcapMaskTex             = FindProperty("_CustomMatcapMaskTex",             props, false);
@@ -730,7 +732,7 @@ namespace Dennokoworks.SpecularExV2
                 _CustomMatcapWorldFixed,        _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
                 _CustomMatcapEnableLighting,    _CustomMatcapShadowStrength,
                 _CustomMatcapDisableBackface,   _CustomMatcapMaskTex, _CustomMatcapNoiseStrength, _CustomMatcapNoiseST,
-                _CustomMatcapHSVG,              _CustomMatcapMainColorStrength,
+                _CustomMatcapHSVG,              _CustomMatcapMainColorStrength, _CustomMatcapApplyFA,
             });
             if (!_foldMatcap) return;
 
@@ -762,6 +764,7 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomMatcapEnableLighting,     Loc("label_enable_lighting"));
                 Prop(_CustomMatcapShadowStrength,     Loc("label_shadow_strength"));
                 BoolProp(_CustomMatcapDisableBackface, Loc("label_disable_backface"));
+                BoolProp(_CustomMatcapApplyFA,         Loc("label_matcap_apply_fa"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapMaskTex, Loc("label_mask"));
                 DrawNoise(_CustomMatcapNoiseStrength, _CustomMatcapNoiseST);

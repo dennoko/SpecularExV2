@@ -93,7 +93,8 @@ float3 DNKW_ToneCorrection(float3 c, float4 hsvg)
 
 #define DNKW_CLEARCOAT_F0     0.04
 
-// lilToon's reflection is gated by _ApplySpecularFA in the additive pass; Specular 2nd mirrors that.
+// lilToon's reflection is gated by _ApplySpecularFA in the additive pass; Specular 2nd/3rd and the World
+// MatCap mirror that with their own *ApplyFA.
 bool DNKW_Refl2ndPassEnabled(float applyFA)
 {
     #if defined(LIL_PASS_FORWARDADD)

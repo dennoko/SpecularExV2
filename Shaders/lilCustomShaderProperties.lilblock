@@ -88,6 +88,8 @@
         _CustomMatcapEnableLighting ("World MatCap Enable Lighting", Range(0, 1)) = 1
         _CustomMatcapShadowStrength ("World MatCap Shadow Strength", Range(0, 1)) = 0
         _CustomMatcapDisableBackface ("World MatCap Disable Backface", Float) = 1
+        // 0 keeps the matcap out of the ForwardAdd pass (per additional light); 1 = previous behavior.
+        _CustomMatcapApplyFA ("World MatCap Apply ForwardAdd", Float) = 1
         _CustomMatcapHSVG ("World MatCap HSVG", Vector) = (0, 1, 1, 1)
         _CustomMatcapMainColorStrength ("World MatCap Main Color Strength", Range(0, 1)) = 0
         _CustomMatcapMaskTex ("World MatCap Mask", 2D) = "white" {}

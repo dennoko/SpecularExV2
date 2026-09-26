@@ -68,7 +68,7 @@
     float  _CustomMatcapNormalStrength; \
     float  _CustomMatcapEnableLighting; \
     float  _CustomMatcapShadowStrength; \
-    float  _CustomMatcapDisableBackface; \
+    float  _CustomMatcapDisableBackface;     float  _CustomMatcapApplyFA; \
     float4 _CustomMatcapHSVG; \
     float  _CustomMatcapMainColorStrength; \
     float  _CustomMatcapEnabled; \
@@ -284,8 +284,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // The texture color goes through lilToneCorrection (HSVG, skipped at the neutral value) and can be
 // multiplied by the main color.
 // Strength 0 or color alpha 0 skips it: every blend mode is lerp(dst, x, alpha), so nothing would change.
+// ApplyFA 0 leaves it out of ForwardAdd (one pass per additional light), like the specular layers.
 #define BEFORE_RIMLIGHT \
-    if (_CustomMatcapEnabled > 0.5 && _CustomMatcapAlpha != 0.0 && _CustomMatcapColor.a != 0.0) { \
+    if (_CustomMatcapEnabled > 0.5 && _CustomMatcapAlpha != 0.0 && _CustomMatcapColor.a != 0.0 && DNKW_Refl2ndPassEnabled(_CustomMatcapApplyFA)) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
         float  _wmT   = saturate(_CustomMatcapWorldFixed); \
         float3 _wmDV  = 0.0; \

@@ -29,6 +29,7 @@
     "label_shadow_attenuation": "影部分で無効化",
     "label_main_color_strength": "メインカラーの強度",
     "label_apply_fa": "複数ライトから光沢を生成",
+    "label_matcap_apply_fa": "追加ライトにも反映",
     "label_mask": "マスク",
     "label_noise_texture": "ノイズテクスチャ",
     "label_noise_strength": "ノイズ強度",

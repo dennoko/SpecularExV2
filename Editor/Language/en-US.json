@@ -29,6 +29,7 @@
     "label_shadow_attenuation": "Shadow Mask",
     "label_main_color_strength": "Main Color Power",
     "label_apply_fa": "Multi Light Specular",
+    "label_matcap_apply_fa": "Apply Additional Lights",
     "label_mask": "Mask",
     "label_noise_texture": "Noise Texture",
     "label_noise_strength": "Noise Strength",
