@@ -1,9 +1,10 @@
 {
-    "foldout_refl2nd": "スペキュラー 2nd (Specular 2nd)",
-    "foldout_refl3rd": "スペキュラー 3rd (Specular 3rd)",
-    "foldout_matcap": "マットキャップ (MatCap)",
-    "foldout_normal3rd": "ノーマルマップ 3rd (Normal Map 3rd)",
-    "foldout_rim2nd": "リムライト 2nd (Rim Light 2nd)",
+    "foldout_refl2nd": "スペキュラー 2nd",
+    "foldout_refl3rd": "スペキュラー 3rd",
+    "foldout_matcap": "マットキャップ",
+    "foldout_normal3rd": "ノーマルマップ 3rd",
+    "foldout_rim2nd": "リムライト 2nd",
+    "foldout_rim3rd": "リムライト 3rd",
     "foldout_packing": "マスクパッキング状態",
 
     "toggle_refl2nd": "スペキュラー 2ndを有効化",
@@ -11,6 +12,7 @@
     "toggle_matcap": "マットキャップを有効化",
     "toggle_normal3rd": "ノーマルマップ 3rdを有効化",
     "toggle_rim2nd": "リムライト 2ndを有効化",
+    "toggle_rim3rd": "リムライト 3rdを有効化",
 
     "label_color": "色",
     "label_strength": "強度",
@@ -63,7 +65,7 @@
     "pack_unsaved": "保存されていないテクスチャを含みます (ビルド時にベイクされます)",
     "label_fingerprint": "フィンガープリント",
     "label_packed_texture": "パック済みテクスチャ",
-    "help_packing": "マスクはRGBAテクスチャ (Pack 1: R=スペキュラー2nd G=リム2nd B=ノーマル3rd A=マットキャップ / Pack 2: R=スペキュラー3rd) に自動でパックされ、テクスチャ数の上限 (64) を回避します。",
+    "help_packing": "マスクはRGBAテクスチャ (Pack 1: R=スペキュラー2nd G=リム2nd B=ノーマル3rd A=マットキャップ / Pack 2: R=スペキュラー3rd G=リム3rd) に自動でパックされ、テクスチャ数の上限 (64) を回避します。",
     "btn_rebuild_packed_mask": "パック済みマスクを再ベイク",
 
     "label_clear_coat": "クリアコート",
@@ -83,7 +85,7 @@
     "label_distance_fade_end": "距離フェード終了 (m)",
     "label_distance_fade_strength": "距離フェード強度",
     "label_border": "境界",
-    "label_vertical_bias": "上下方向の制限 (+上 / -下)",
+    "label_vertical_bias": "リムライトの方向 +上 -下",
     "label_backlight": "逆光ブースト"
 
 }

@@ -21,6 +21,7 @@ v1（[v1 仕様・リファレンス](ref/v1.md)）では、2層スペキュラ�
 2. **ワールド固定 MatCap (World-Oriented Dual-Hemisphere Matcap)**: 視点回転に追従せずワールド空間の反射を表現するデュアル半球MatCap（疑似Cubemap）
 3. **追加ノーマル (Normal Map 3rd)**: 標準スロットを上書きせず高品質に加算合成する第3の法線マップ
 4. **追加リムライト (Rim Light 2nd)**: 光源方向依存を排除した軽量設計＋4種のブレンドモード対応
+5. **追加リムライト (Rim Light 3rd)**: Rim Light 2nd と同等の完全な第3のリムライト層
 
 ---
 
@@ -161,9 +162,29 @@ lilToon 本体のリムライトに加えて独立して発光/陰影効果を�
   - 影減衰度 (`_CustomRim2ndShadowAttenuation`)
   - メインカラー乗算度 (`_CustomRim2ndMainColorStrength`)
   - ライティング反映 (`_CustomRim2ndEnableLighting`, 既定 1): リム色にライト色を乗算 (乗算モードは対象外)。暗所で発光して浮かないようにする
-  - 上下方向の制限 (`_CustomRim2ndVerticalBias`, -1〜1): ワールド上方向を基準に、+ で上向きの面、- で下向きの面だけにリムを出す
+  - リムライトの方向 (`_CustomRim2ndVerticalBias`, -1〜1): ワールド上方向を基準に、+ で上向きの面、- で下向きの面だけにリムを出す
   - 逆光ブースト (`_CustomRim2ndBacklight`, 0〜4): 光源が視点の反対側にあるほどリムを強める (`saturate(-fd.vl)^2`)
-  - 適用マスク (`_CustomRim2ndMaskTex`): ※エディタで自動パック（Gチャンネル）
+  - 適用マスク (`_CustomRim2ndMaskTex`): ※エディタで自動パック（Pack 1 Gチャンネル）
+
+---
+
+### 2.6 追加リムライト (Rim Light 3rd)
+Rim Light 2nd と同等の完全な第3のリムライト層です。独立したカラー、強度、指数、境界・ぼかし、ブレンドモード、方向バイアス、逆光ブースト、マスクを持ちます。
+
+- **パラメーター一覧**:
+  - 有効化トグル (`_CustomRim3rdEnabled` / `_CustomRim3rdUIEnabled`)
+  - リムカラー (`_CustomRim3rdColor`, HDR)
+  - 強度 (`_CustomRim3rdStrength`)
+  - 絞り・指数 (`_CustomRim3rdPower`, 0.1 〜 32.0)
+  - 境界 (`_CustomRim3rdBorder`, 既定 0.5) / ぼかし (`_CustomRim3rdBlur`)
+  - ブレンドモード (`_CustomRim3rdBlendMode`: 0=Replace, 1=Add, 2=Screen, 3=Multiply)
+  - 法線影響度 (`_CustomRim3rdNormalStrength`)
+  - 影減衰度 (`_CustomRim3rdShadowAttenuation`)
+  - メインカラー乗算度 (`_CustomRim3rdMainColorStrength`)
+  - ライティング反映 (`_CustomRim3rdEnableLighting`, 既定 1)
+  - リムライトの方向 (`_CustomRim3rdVerticalBias`, -1〜1)
+  - 逆光ブースト (`_CustomRim3rdBacklight`, 0〜4)
+  - 適用マスク (`_CustomRim3rdMaskTex`): ※エディタで自動パック（Pack 2 Gチャンネル）
 
 ---
 
@@ -192,7 +213,7 @@ lilToon 本体のリムライトに加えて独立して発光/陰影効果を�
 | チャンネル | 割り当て元プロパティ | 機能名 | デフォルト値（未設定時） |
 | :---: | :--- | :--- | :---: |
 | **R** | `_CustomRefl3rdMaskTex` | スペキュラー 3rd マスク | `1.0` (White) |
-| **G** | 未使用 | 予備 | `1.0` (White) |
+| **G** | `_CustomRim3rdMaskTex` | リムライト 3rd マスク | `1.0` (White) |
 | **B** | 未使用 | 予備 | `1.0` (White) |
 | **A** | 未使用 | 予備 | `1.0` (White) |
 

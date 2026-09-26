@@ -91,7 +91,21 @@
     float  _CustomRim2ndShadowAttenuation; \
     float  _CustomRim2ndMainColorStrength; \
     float  _CustomRim2ndEnabled; \
-    float4 _CustomRim2ndMaskTex_ST;
+    float4 _CustomRim2ndMaskTex_ST; \
+    float4 _CustomRim3rdColor; \
+    float  _CustomRim3rdStrength; \
+    float  _CustomRim3rdPower; \
+    float  _CustomRim3rdBorder; \
+    float  _CustomRim3rdBlur; \
+    float  _CustomRim3rdVerticalBias; \
+    float  _CustomRim3rdBacklight; \
+    float  _CustomRim3rdEnableLighting; \
+    float  _CustomRim3rdBlendMode; \
+    float  _CustomRim3rdNormalStrength; \
+    float  _CustomRim3rdShadowAttenuation; \
+    float  _CustomRim3rdMainColorStrength; \
+    float  _CustomRim3rdEnabled; \
+    float4 _CustomRim3rdMaskTex_ST;
 
 // Custom textures
 // Two separate limits apply:
@@ -99,7 +113,7 @@
 //     lil_sampler_linear_clamp), so no SamplerState is declared here.
 //   * 64 TEXTURE PARAMETERS per shader: the single-channel masks are packed into RGBA textures:
 //       Packed 1: R = Specular 2nd   G = Rim Light 2nd   B = Normal Map 3rd   A = World MatCap
-//       Packed 2: R = Specular 3rd
+//       Packed 2: R = Specular 3rd   G = Rim Light 3rd
 //     Each channel is still sampled with its own mask slot's tiling/offset, so nothing is lost.
 //     The two matcap hemispheres share ONE texture (side-by-side layout) instead of two slots.
 #define LIL_CUSTOM_TEXTURES \
@@ -265,6 +279,21 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float3 _r2Color = _CustomRim2ndColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRim2ndMainColorStrength); \
         if (_CustomRim2ndBlendMode < 2.5) _r2Color = lerp(_r2Color, _r2Color * fd.lightColor, _CustomRim2ndEnableLighting); \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _r2Color, _r2Amt, _CustomRim2ndBlendMode); \
+    } \
+    if (DNKW_PASS_META == 0 && _CustomRim3rdEnabled > 0.5) { \
+        float3 _r3N     = normalize(lerp(fd.origN, fd.N, _CustomRim3rdNormalStrength)); \
+        float  _r3Val   = pow(saturate(1.0 - saturate(dot(_r3N, fd.V))), _CustomRim3rdPower); \
+        float  _r3Half  = _CustomRim3rdBlur * 0.5; \
+        _r3Val = saturate((_r3Val - (_CustomRim3rdBorder - _r3Half)) / max(_r3Half * 2.0, fwidth(_r3Val) + 1e-4)); \
+        float  _r3Amt   = _r3Val * _CustomRim3rdStrength * _CustomRim3rdColor.a * DNKW_SAMPLE_MASK2(_CustomRim3rdMaskTex_ST).g; \
+        _r3Amt *= lerp(1.0, fd.shadowmix, _CustomRim3rdShadowAttenuation); \
+        float  _r3Up    = (_CustomRim3rdVerticalBias >= 0.0 ? _r3N.y : -_r3N.y) * 0.5 + 0.5; \
+        _r3Amt *= lerp(1.0, _r3Up, abs(_CustomRim3rdVerticalBias)); \
+        float  _r3Back  = saturate(-fd.vl); \
+        _r3Amt  = saturate(_r3Amt * (1.0 + _CustomRim3rdBacklight * _r3Back * _r3Back)); \
+        float3 _r3Color = _CustomRim3rdColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRim3rdMainColorStrength); \
+        if (_CustomRim3rdBlendMode < 2.5) _r3Color = lerp(_r3Color, _r3Color * fd.lightColor, _CustomRim3rdEnableLighting); \
+        fd.col.rgb = lilBlendColor(fd.col.rgb, _r3Color, _r3Amt, _CustomRim3rdBlendMode); \
     }
 
 //----------------------------------------------------------------------------------------------------------------------

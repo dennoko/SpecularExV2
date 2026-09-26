@@ -1,5 +1,5 @@
         //----------------------------------------------------------------------------------------------------------------------
-        // Packed mask (1: R:Specular 2nd  G:Rim Light 2nd  B:Normal Map 3rd  A:World MatCap / 2: R:Specular 3rd).
+        // Packed mask (1: R:Specular 2nd  G:Rim Light 2nd  B:Normal Map 3rd  A:World MatCap / 2: R:Specular 3rd  G:Rim Light 3rd).
         // Baked in the editor from the individual *_MaskTex slots below (SpecularExPackedMaskStore) and
         // the ONLY mask texture the shader declares, which keeps the texture-parameter count far below
         // the GPU limit of 64 even in lilToon's all-features-on build.
@@ -118,3 +118,25 @@
         _CustomRim2ndShadowAttenuation ("Rim Light 2nd Shadow Attenuation", Range(0, 1)) = 0
         _CustomRim2ndMainColorStrength ("Rim Light 2nd Main Color Strength", Range(0, 1)) = 0
         _CustomRim2ndMaskTex ("Rim Light 2nd Mask", 2D) = "white" {}
+
+        //----------------------------------------------------------------------------------------------------------------------
+        // Rim Light 3rd
+        [HideInInspector] _CustomRim3rdUIEnabled ("Enable Rim Light 3rd", Float) = 0
+        _CustomRim3rdEnabled ("Enable Rim Light 3rd", Float) = 0
+        [HDR] _CustomRim3rdColor ("Rim Light 3rd Color", Color) = (1, 1, 1, 1)
+        _CustomRim3rdStrength ("Rim Light 3rd Strength", Range(0, 1)) = 1
+        _CustomRim3rdPower ("Rim Light 3rd Power", Range(0.1, 32)) = 3
+        _CustomRim3rdBorder ("Rim Light 3rd Border", Range(0, 1)) = 0.5
+        _CustomRim3rdBlur ("Rim Light 3rd Blur", Range(0, 1)) = 1
+        // +: upward-facing surfaces only, -: downward-facing only, 0: no restriction (world up).
+        _CustomRim3rdVerticalBias ("Rim Light 3rd Vertical Bias", Range(-1, 1)) = 0
+        _CustomRim3rdBacklight ("Rim Light 3rd Backlight Boost", Range(0, 4)) = 0
+        // Tints the rim by the light color (not in Multiply mode). 1 like lilToon's _RimEnableLighting, so the
+        // rim does not glow in dark worlds; 0 keeps the old emissive-looking rim.
+        _CustomRim3rdEnableLighting ("Rim Light 3rd Enable Lighting", Range(0, 1)) = 1
+        _CustomRim3rdBlendMode ("Rim Light 3rd Blend Mode", Float) = 1
+        _CustomRim3rdNormalStrength ("Rim Light 3rd Normal Strength", Range(0, 1)) = 1
+        _CustomRim3rdShadowAttenuation ("Rim Light 3rd Shadow Attenuation", Range(0, 1)) = 0
+        _CustomRim3rdMainColorStrength ("Rim Light 3rd Main Color Strength", Range(0, 1)) = 0
+        _CustomRim3rdMaskTex ("Rim Light 3rd Mask", 2D) = "white" {}
+

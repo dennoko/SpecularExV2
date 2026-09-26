@@ -4,6 +4,7 @@
     "foldout_matcap": "MatCap",
     "foldout_normal3rd": "Normal Map 3rd",
     "foldout_rim2nd": "Rim Light 2nd",
+    "foldout_rim3rd": "Rim Light 3rd",
     "foldout_packing": "Mask Packing Status",
 
     "toggle_refl2nd": "Enable Specular 2nd",
@@ -11,6 +12,7 @@
     "toggle_matcap": "Enable MatCap",
     "toggle_normal3rd": "Enable Normal Map 3rd",
     "toggle_rim2nd": "Enable Rim Light 2nd",
+    "toggle_rim3rd": "Enable Rim Light 3rd",
 
     "label_color": "Color",
     "label_strength": "Strength",
@@ -63,7 +65,7 @@
     "pack_unsaved": "Contains unsaved textures (baked at build time)",
     "label_fingerprint": "Fingerprint",
     "label_packed_texture": "Packed Texture",
-    "help_packing": "Masks are packed automatically into RGBA textures (Pack 1: R=Specular 2nd G=Rim 2nd B=Normal 3rd A=MatCap / Pack 2: R=Specular 3rd) to stay under the 64 texture-parameter limit.",
+    "help_packing": "Masks are packed automatically into RGBA textures (Pack 1: R=Specular 2nd G=Rim 2nd B=Normal 3rd A=MatCap / Pack 2: R=Specular 3rd G=Rim 3rd) to stay under the 64 texture-parameter limit.",
     "btn_rebuild_packed_mask": "Rebake Packed Masks",
 
     "label_clear_coat": "Clear Coat",
@@ -83,7 +85,7 @@
     "label_distance_fade_end": "Distance Fade End (m)",
     "label_distance_fade_strength": "Distance Fade Strength",
     "label_border": "Border",
-    "label_vertical_bias": "Vertical Restriction (+up / -down)",
+    "label_vertical_bias": "Rim Light Direction (+up / -down)",
     "label_backlight": "Backlight Boost"
 
 }

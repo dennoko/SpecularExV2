@@ -12,8 +12,9 @@ namespace Dennokoworks.SpecularExV2
     // material) is SpecularExPackedMaskStore's job.
     //
     // Channel layout (must match custom.hlsl / SpecularEx_MaskPacker.shader):
-    //   R = _CustomRefl2ndMaskTex    G = _CustomRim2ndMaskTex
-    //   B = _CustomNormal3rdMaskTex  A = _CustomMatcapMaskTex
+    //   Pack 1: R = _CustomRefl2ndMaskTex    G = _CustomRim2ndMaskTex
+    //           B = _CustomNormal3rdMaskTex  A = _CustomMatcapMaskTex
+    //   Pack 2: R = _CustomRefl3rdMaskTex    G = _CustomRim3rdMaskTex
     public static class SpecularExMaskPacker
     {
         public const string ShaderNameRoot = "dennokoworks/SpecularExV2";
@@ -33,7 +34,7 @@ namespace Dennokoworks.SpecularExV2
         public static readonly string[] SourceProps2 =
         {
             "_CustomRefl3rdMaskTex",   // R
-            null,                      // G
+            "_CustomRim3rdMaskTex",    // G
             null,                      // B
             null,                      // A
         };
@@ -58,6 +59,7 @@ namespace Dennokoworks.SpecularExV2
             "_CustomNormal3rdMaskTex",
             "_CustomMatcapMaskTex",
             "_CustomRefl3rdMaskTex",
+            "_CustomRim3rdMaskTex",
         };
 
         public static readonly string[] SourceProps = AllSourceProps;

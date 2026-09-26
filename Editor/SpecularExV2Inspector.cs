@@ -98,12 +98,30 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRim2ndMainColorStrength;
         MaterialProperty _CustomRim2ndMaskTex;
 
+        // -- Rim Light 3rd --
+        MaterialProperty _CustomRim3rdUIEnabled;
+        MaterialProperty _CustomRim3rdEnabled;
+        MaterialProperty _CustomRim3rdColor;
+        MaterialProperty _CustomRim3rdStrength;
+        MaterialProperty _CustomRim3rdPower;
+        MaterialProperty _CustomRim3rdBlur;
+        MaterialProperty _CustomRim3rdBorder;
+        MaterialProperty _CustomRim3rdVerticalBias;
+        MaterialProperty _CustomRim3rdBacklight;
+        MaterialProperty _CustomRim3rdEnableLighting;
+        MaterialProperty _CustomRim3rdBlendMode;
+        MaterialProperty _CustomRim3rdNormalStrength;
+        MaterialProperty _CustomRim3rdShadowAttenuation;
+        MaterialProperty _CustomRim3rdMainColorStrength;
+        MaterialProperty _CustomRim3rdMaskTex;
+
         // Foldout states
         static bool _foldRefl2nd;
         static bool _foldRefl3rd;
         static bool _foldMatcap;
         static bool _foldNormal3rd;
         static bool _foldRim2nd;
+        static bool _foldRim3rd;
         static bool _foldPacking;
 
         // Copy/paste buffer
@@ -208,6 +226,22 @@ namespace Dennokoworks.SpecularExV2
             _CustomRim2ndMainColorStrength   = FindProperty("_CustomRim2ndMainColorStrength",   props, false);
             _CustomRim2ndMaskTex             = FindProperty("_CustomRim2ndMaskTex",             props, false);
 
+            _CustomRim3rdUIEnabled           = FindProperty("_CustomRim3rdUIEnabled",           props, false);
+            _CustomRim3rdEnabled             = FindProperty("_CustomRim3rdEnabled",             props, false);
+            _CustomRim3rdColor               = FindProperty("_CustomRim3rdColor",               props, false);
+            _CustomRim3rdStrength            = FindProperty("_CustomRim3rdStrength",            props, false);
+            _CustomRim3rdPower               = FindProperty("_CustomRim3rdPower",               props, false);
+            _CustomRim3rdBlur                = FindProperty("_CustomRim3rdBlur",                props, false);
+            _CustomRim3rdBorder              = FindProperty("_CustomRim3rdBorder",              props, false);
+            _CustomRim3rdVerticalBias        = FindProperty("_CustomRim3rdVerticalBias",        props, false);
+            _CustomRim3rdBacklight           = FindProperty("_CustomRim3rdBacklight",           props, false);
+            _CustomRim3rdEnableLighting      = FindProperty("_CustomRim3rdEnableLighting",      props, false);
+            _CustomRim3rdBlendMode           = FindProperty("_CustomRim3rdBlendMode",           props, false);
+            _CustomRim3rdNormalStrength      = FindProperty("_CustomRim3rdNormalStrength",      props, false);
+            _CustomRim3rdShadowAttenuation   = FindProperty("_CustomRim3rdShadowAttenuation",   props, false);
+            _CustomRim3rdMainColorStrength   = FindProperty("_CustomRim3rdMainColorStrength",   props, false);
+            _CustomRim3rdMaskTex             = FindProperty("_CustomRim3rdMaskTex",             props, false);
+
             // One-time legacy migration on initial material load: if an older material had Enabled=1
             // but UIEnabled=0, set UIEnabled=1 so the inspector displays it as active.
             if (material != null)
@@ -217,6 +251,7 @@ namespace Dennokoworks.SpecularExV2
                 MigrateLegacyUIProperty(material, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    _CustomMatcapUIEnabled);
                 MigrateLegacyUIProperty(material, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", _CustomNormal3rdUIEnabled);
                 MigrateLegacyUIProperty(material, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    _CustomRim2ndUIEnabled);
+                MigrateLegacyUIProperty(material, "_CustomRim3rdEnabled",    "_CustomRim3rdUIEnabled",    _CustomRim3rdUIEnabled);
             }
         }
 
@@ -244,6 +279,7 @@ namespace Dennokoworks.SpecularExV2
             DrawMatcap();
             DrawNormal3rd();
             DrawRim2nd();
+            DrawRim3rd();
             DrawPackingStatus();
 
             SyncAllEffective();
@@ -271,6 +307,7 @@ namespace Dennokoworks.SpecularExV2
                 SyncEffectiveEnabled(m, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    "_CustomMatcapFrontTex");
                 SyncEffectiveEnabled(m, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", "_CustomNormal3rdTex");
                 SyncEffectiveEnabled(m, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    null);
+                SyncEffectiveEnabled(m, "_CustomRim3rdEnabled",    "_CustomRim3rdUIEnabled",    null);
             }
 
             SyncPropertyEffective(_CustomRefl2ndEnabled,   _CustomRefl2ndUIEnabled,   null);
@@ -278,6 +315,7 @@ namespace Dennokoworks.SpecularExV2
             SyncPropertyEffective(_CustomMatcapEnabled,    _CustomMatcapUIEnabled,    _CustomMatcapFrontTex);
             SyncPropertyEffective(_CustomNormal3rdEnabled, _CustomNormal3rdUIEnabled, _CustomNormal3rdTex);
             SyncPropertyEffective(_CustomRim2ndEnabled,    _CustomRim2ndUIEnabled,    null);
+            SyncPropertyEffective(_CustomRim3rdEnabled,    _CustomRim3rdUIEnabled,    null);
         }
 
         static void SyncPropertyEffective(MaterialProperty enabledProp, MaterialProperty uiProp, MaterialProperty texProp)
@@ -752,6 +790,49 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRim2ndMainColorStrength, Loc("label_main_color_strength"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRim2ndMaskTex, Loc("label_mask"));
+                EditorGUILayout.EndVertical();
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        // -- Rim Light 3rd --
+        void DrawRim3rd()
+        {
+            _foldRim3rd = Foldout(Loc("foldout_rim3rd"), _foldRim3rd);
+            DrawSectionMenu(new[] {
+                _CustomRim3rdUIEnabled,         _CustomRim3rdEnabled,
+                _CustomRim3rdColor,             _CustomRim3rdStrength,
+                _CustomRim3rdPower,             _CustomRim3rdBlur,
+                _CustomRim3rdBlendMode,         _CustomRim3rdNormalStrength,
+                _CustomRim3rdShadowAttenuation, _CustomRim3rdMainColorStrength,
+                _CustomRim3rdMaskTex,           _CustomRim3rdBorder,
+                _CustomRim3rdVerticalBias,      _CustomRim3rdBacklight,
+                _CustomRim3rdEnableLighting,
+            });
+            if (!_foldRim3rd) return;
+
+            EditorGUILayout.BeginVertical(boxOuter);
+            DrawToggle(_CustomRim3rdUIEnabled, _CustomRim3rdEnabled, null, Loc("toggle_rim3rd"));
+            if (IsOn(_CustomRim3rdUIEnabled))
+            {
+                EditorGUILayout.BeginVertical(boxInnerHalf);
+                Prop(_CustomRim3rdColor,    Loc("label_color"));
+                Prop(_CustomRim3rdStrength, Loc("label_strength"));
+                PopupProp(_CustomRim3rdBlendMode, Loc("label_blend_mode"), BlendModes());
+                Prop(_CustomRim3rdEnableLighting, Loc("label_enable_lighting"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRim3rdPower,  Loc("label_power"));
+                Prop(_CustomRim3rdBorder, Loc("label_border"));
+                Prop(_CustomRim3rdBlur,   Loc("label_rim_blur"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRim3rdVerticalBias, Loc("label_vertical_bias"));
+                Prop(_CustomRim3rdBacklight,    Loc("label_backlight"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRim3rdNormalStrength,    Loc("label_normal_strength"));
+                Prop(_CustomRim3rdShadowAttenuation, Loc("label_shadow_attenuation"));
+                Prop(_CustomRim3rdMainColorStrength, Loc("label_main_color_strength"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRim3rdMaskTex, Loc("label_mask"));
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
