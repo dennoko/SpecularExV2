@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using Unity.Profiling;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -53,6 +54,25 @@ namespace Dennokoworks.SpecularExV2
         {
             ".mat", ".asset", ".fbx", ".obj", ".blend", ".dae", ".3ds", ".max", ".ma", ".mb",
         };
+
+        static readonly ProfilerMarker ProcessMarker = new ProfilerMarker("SpecularExV2.Watcher.Process");
+        static readonly ProfilerMarker SceneMarker = new ProfilerMarker("SpecularExV2.Watcher.CollectScene");
+        static readonly ProfilerMarker AffectedMarker = new ProfilerMarker("SpecularExV2.Watcher.CollectAffected");
+
+        // Debug timing log: one line per processed batch. Off by default; toggled from the menu.
+        const string DebugTimingPref = "SpecularExV2.DebugTiming";
+        const string DebugTimingMenu = "Window/SpecularExV2/Packed Masks/Debug Timing Log";
+        static bool DebugTiming => EditorPrefs.GetBool(DebugTimingPref, false);
+
+        [MenuItem(DebugTimingMenu)]
+        static void ToggleDebugTiming() => EditorPrefs.SetBool(DebugTimingPref, !DebugTiming);
+
+        [MenuItem(DebugTimingMenu, true)]
+        static bool ToggleDebugTimingValidate()
+        {
+            Menu.SetChecked(DebugTimingMenu, DebugTiming);
+            return true;
+        }
 
         static SpecularExPackedMaskWatcher()
         {
@@ -112,13 +132,20 @@ namespace Dennokoworks.SpecularExV2
             EditorApplication.update -= Process;
             _scheduled = false;
 
+            using var _ = ProcessMarker.Auto();
+            var timer = DebugTiming ? System.Diagnostics.Stopwatch.StartNew() : null;
+            int requested = _materials.Count, containers = _containerPaths.Count, textures = _texturePaths.Count;
+            bool scanned = _scanScenes, deleted = _texturesDeleted;
+            long collectMs = 0;
+
             var targets = new List<Material>(_materials);
             _materials.Clear();
 
             if (_scanScenes)
             {
                 _scanScenes = false;
-                CollectSceneMaterials(targets);
+                using (SceneMarker.Auto())
+                    CollectSceneMaterials(targets);
             }
 
             // A full project import reports every model and .asset here; loading them all is what
@@ -130,14 +157,26 @@ namespace Dennokoworks.SpecularExV2
 
             if (_texturePaths.Count > 0 || _texturesDeleted)
             {
-                CollectAffectedAssetMaterials(targets, _texturePaths, _texturesDeleted);
-                CollectAffectedInMemoryMaterials(targets, _texturePaths, _texturesDeleted);
+                using (AffectedMarker.Auto())
+                {
+                    CollectAffectedAssetMaterials(targets, _texturePaths, _texturesDeleted);
+                    CollectAffectedInMemoryMaterials(targets, _texturePaths, _texturesDeleted);
+                }
             }
             _texturePaths.Clear();
             _texturesDeleted = false;
+            if (timer != null) collectMs = timer.ElapsedMilliseconds;
 
             try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true); }
             catch (System.Exception e) { Debug.LogException(e); }
+
+            if (timer != null)
+            {
+                var st = SpecularExPackedMaskStore.LastStats;
+                Debug.Log($"[SpecularExV2] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
+                          $"requested {requested}, containers {containers}, textures {textures}, deleted {deleted}, scene scan {scanned} | " +
+                          $"targets {targets.Count}, examined {st.materials}, written {st.written}, reimported {st.reimported}, assigned {st.assigned}");
+            }
 
             foreach (var m in targets)
                 if (SpecularExMaskPacker.HasPackedSlot(m) && !EditorUtility.IsPersistent(m))

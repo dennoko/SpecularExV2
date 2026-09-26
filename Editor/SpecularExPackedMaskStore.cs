@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
 
@@ -49,7 +50,31 @@ namespace Dennokoworks.SpecularExV2
             public string path;
         }
 
+        // What the last EnsureAll call did; logged by the watcher when debug timing is enabled.
+        public struct EnsureStats
+        {
+            public int materials;  // SpecularExV2 materials examined
+            public int written;    // PNG files baked and written
+            public int reimported; // generated files reimported for their import settings
+            public int assigned;   // materials whose packed reference changed
+        }
+
+        public static EnsureStats LastStats;
+
+        static readonly ProfilerMarker EnsureAllMarker = new ProfilerMarker("SpecularExV2.EnsureAll");
+        static readonly ProfilerMarker PlanMarker = new ProfilerMarker("SpecularExV2.EnsureAll.Plan");
+        static readonly ProfilerMarker ImportSettingsMarker = new ProfilerMarker("SpecularExV2.EnsureAll.ImportSettings");
+        static readonly ProfilerMarker AssignMarker = new ProfilerMarker("SpecularExV2.EnsureAll.Assign");
+        static readonly ProfilerMarker GetStateMarker = new ProfilerMarker("SpecularExV2.GetState");
+
         public static bool EnsureAll(IEnumerable<Material> materials, bool persist, bool rebake = false)
+        {
+            LastStats = default;
+            using (EnsureAllMarker.Auto())
+                return EnsureAllCore(materials, persist, rebake);
+        }
+
+        static bool EnsureAllCore(IEnumerable<Material> materials, bool persist, bool rebake)
         {
             var plans = new List<MaterialPackPlan>();
             var seen = new HashSet<Material>();
@@ -61,11 +86,13 @@ namespace Dennokoworks.SpecularExV2
             bool editing = false;
 
             // Pass 1: decide each material's file and create missing ones. Imports are batched.
+            using (PlanMarker.Auto())
             try
             {
                 foreach (var m in materials)
                 {
                     if (!SpecularExMaskPacker.HasPackedSlot(m) || !seen.Add(m)) continue;
+                    LastStats.materials++;
 
                     for (int p = 0; p < SpecularExMaskPacker.Packs.Length; p++)
                     {
@@ -106,6 +133,7 @@ namespace Dennokoworks.SpecularExV2
                             }
                             File.WriteAllBytes(path, png);
                             AssetDatabase.ImportAsset(path);
+                            LastStats.written++;
                         }
                         plans.Add(new MaterialPackPlan { material = m, packIndex = p, path = path });
                     }
@@ -119,10 +147,12 @@ namespace Dennokoworks.SpecularExV2
             var paths = new HashSet<string>();
             foreach (var plan in plans)
                 if (plan.path != null) paths.Add(plan.path);
-            EnsureImportSettings(paths);
+            using (ImportSettingsMarker.Auto())
+                EnsureImportSettings(paths);
 
             // Pass 2: assign. Only materials whose reference actually changes are touched.
             var changedMaterials = new HashSet<Material>();
+            using (AssignMarker.Auto())
             foreach (var plan in plans)
             {
                 var m = plan.material;
@@ -150,6 +180,7 @@ namespace Dennokoworks.SpecularExV2
                 EditorUtility.SetDirty(m);
                 changedMaterials.Add(m);
             }
+            LastStats.assigned = changedMaterials.Count;
 
             if (persist)
             {
@@ -208,6 +239,7 @@ namespace Dennokoworks.SpecularExV2
         //   fingerprint: the input fingerprint(s) (file name without extension), or null.
         public static PackState GetState(Material m, out string fingerprint)
         {
+            using var _ = GetStateMarker.Auto();
             fingerprint = null;
             if (!SpecularExMaskPacker.HasPackedSlot(m) || !SpecularExMaskPacker.NeedsPacking(m))
                 return PackState.NoMasks;
@@ -324,6 +356,7 @@ namespace Dennokoworks.SpecularExV2
                         editing = true;
                     }
                     ti.SaveAndReimport();
+                    LastStats.reimported++;
                 }
             }
             finally
