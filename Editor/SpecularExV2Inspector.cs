@@ -167,6 +167,28 @@ namespace Dennokoworks.SpecularExV2
             _CustomRim2ndShadowAttenuation   = FindProperty("_CustomRim2ndShadowAttenuation",   props, false);
             _CustomRim2ndMainColorStrength   = FindProperty("_CustomRim2ndMainColorStrength",   props, false);
             _CustomRim2ndMaskTex             = FindProperty("_CustomRim2ndMaskTex",             props, false);
+
+            // One-time legacy migration on initial material load: if an older material had Enabled=1
+            // but UIEnabled=0, set UIEnabled=1 so the inspector displays it as active.
+            if (material != null)
+            {
+                MigrateLegacyUIProperty(material, "_CustomRefl2ndEnabled",   "_CustomRefl2ndUIEnabled",   _CustomRefl2ndUIEnabled);
+                MigrateLegacyUIProperty(material, "_CustomRefl3rdEnabled",   "_CustomRefl3rdUIEnabled",   _CustomRefl3rdUIEnabled);
+                MigrateLegacyUIProperty(material, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    _CustomMatcapUIEnabled);
+                MigrateLegacyUIProperty(material, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", _CustomNormal3rdUIEnabled);
+                MigrateLegacyUIProperty(material, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    _CustomRim2ndUIEnabled);
+            }
+        }
+
+        void MigrateLegacyUIProperty(Material m, string enabledProp, string uiProp, MaterialProperty uiMaterialProp)
+        {
+            if (!m.HasProperty(enabledProp) || !m.HasProperty(uiProp)) return;
+            if (m.GetFloat(enabledProp) > 0.5f && m.GetFloat(uiProp) < 0.5f)
+            {
+                m.SetFloat(uiProp, 1f);
+                if (uiMaterialProp != null) uiMaterialProp.floatValue = 1f;
+                EditorUtility.SetDirty(m);
+            }
         }
 
         protected override void DrawCustomProperties(Material material)
@@ -204,32 +226,36 @@ namespace Dennokoworks.SpecularExV2
             foreach (var t in m_MaterialEditor.targets)
             {
                 if (!(t is Material m)) continue;
-                MigrateUIEnabled(m, "_CustomRefl2ndEnabled",   "_CustomRefl2ndUIEnabled");
-                MigrateUIEnabled(m, "_CustomRefl3rdEnabled",   "_CustomRefl3rdUIEnabled");
-                MigrateUIEnabled(m, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled");
-                MigrateUIEnabled(m, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled");
-                MigrateUIEnabled(m, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled");
-
                 SyncEffectiveEnabled(m, "_CustomRefl2ndEnabled",   "_CustomRefl2ndUIEnabled",   null);
                 SyncEffectiveEnabled(m, "_CustomRefl3rdEnabled",   "_CustomRefl3rdUIEnabled",   null);
                 SyncEffectiveEnabled(m, "_CustomMatcapEnabled",    "_CustomMatcapUIEnabled",    "_CustomMatcapFrontTex");
                 SyncEffectiveEnabled(m, "_CustomNormal3rdEnabled", "_CustomNormal3rdUIEnabled", "_CustomNormal3rdTex");
                 SyncEffectiveEnabled(m, "_CustomRim2ndEnabled",    "_CustomRim2ndUIEnabled",    null);
                 // Back hemisphere: its own texture when assigned, otherwise the mirrored front texture.
-                SyncEffectiveEnabled(m, "_CustomMatcapBackEnabled", null, "_CustomMatcapBackTex");
+                SyncEffectiveEnabled(m, "_CustomMatcapBackEnabled", null,                       "_CustomMatcapBackTex");
+            }
+
+            SyncPropertyEffective(_CustomRefl2ndEnabled,   _CustomRefl2ndUIEnabled,   null);
+            SyncPropertyEffective(_CustomRefl3rdEnabled,   _CustomRefl3rdUIEnabled,   null);
+            SyncPropertyEffective(_CustomMatcapEnabled,    _CustomMatcapUIEnabled,    _CustomMatcapFrontTex);
+            SyncPropertyEffective(_CustomNormal3rdEnabled, _CustomNormal3rdUIEnabled, _CustomNormal3rdTex);
+            SyncPropertyEffective(_CustomRim2ndEnabled,    _CustomRim2ndUIEnabled,    null);
+            if (_CustomMatcapBackEnabled != null && _CustomMatcapBackTex != null)
+            {
+                float target = _CustomMatcapBackTex.textureValue != null ? 1f : 0f;
+                if (_CustomMatcapBackEnabled.floatValue != target)
+                    _CustomMatcapBackEnabled.floatValue = target;
             }
         }
 
-        // Materials whose effective flag was turned on without the UI flag (older materials, scripts,
-        // paste from a plain material) show the toggle as on instead of silently losing the feature.
-        static void MigrateUIEnabled(Material m, string enabledProp, string uiProp)
+        static void SyncPropertyEffective(MaterialProperty enabledProp, MaterialProperty uiProp, MaterialProperty texProp)
         {
-            if (!m.HasProperty(enabledProp) || !m.HasProperty(uiProp)) return;
-            if (m.GetFloat(enabledProp) > 0.5f && m.GetFloat(uiProp) < 0.5f)
-            {
-                m.SetFloat(uiProp, 1f);
-                EditorUtility.SetDirty(m);
-            }
+            if (enabledProp == null || uiProp == null) return;
+            bool ui  = uiProp.floatValue > 0.5f;
+            bool tex = texProp == null || texProp.textureValue != null;
+            float target = ui && tex ? 1f : 0f;
+            if (enabledProp.floatValue != target)
+                enabledProp.floatValue = target;
         }
 
         // uiProp == null: the flag depends on the texture only. texProp == null: on the toggle only.
@@ -247,14 +273,38 @@ namespace Dennokoworks.SpecularExV2
         // ========================================================================
         //  Helpers
         // ========================================================================
-        void DrawToggle(MaterialProperty prop, string label)
+        void DrawToggle(MaterialProperty uiProp, MaterialProperty enabledProp, MaterialProperty texProp, string label)
         {
-            if (prop == null) return;
-            EditorGUI.showMixedValue = prop.hasMixedValue;
+            if (uiProp == null) return;
+            EditorGUI.showMixedValue = uiProp.hasMixedValue;
             EditorGUI.BeginChangeCheck();
-            bool on = EditorGUI.ToggleLeft(EditorGUILayout.GetControlRect(), label, prop.floatValue > 0.5f, customToggleFont);
+            bool on = EditorGUI.ToggleLeft(EditorGUILayout.GetControlRect(), label, uiProp.floatValue > 0.5f, customToggleFont);
             if (EditorGUI.EndChangeCheck())
-                prop.floatValue = on ? 1f : 0f;
+            {
+                m_MaterialEditor.RegisterPropertyChangeUndo(label);
+                float uiVal = on ? 1f : 0f;
+                uiProp.floatValue = uiVal;
+
+                if (enabledProp != null)
+                {
+                    bool hasTex = texProp == null || texProp.textureValue != null;
+                    enabledProp.floatValue = (on && hasTex) ? 1f : 0f;
+                }
+
+                foreach (var t in m_MaterialEditor.targets)
+                {
+                    if (t is Material m)
+                    {
+                        m.SetFloat(uiProp.name, uiVal);
+                        if (enabledProp != null)
+                        {
+                            bool mHasTex = texProp == null || (m.HasProperty(texProp.name) && m.GetTexture(texProp.name) != null);
+                            m.SetFloat(enabledProp.name, (on && mHasTex) ? 1f : 0f);
+                        }
+                        EditorUtility.SetDirty(m);
+                    }
+                }
+            }
             EditorGUI.showMixedValue = false;
         }
 
@@ -270,7 +320,12 @@ namespace Dennokoworks.SpecularExV2
             EditorGUI.BeginChangeCheck();
             bool on = EditorGUILayout.Toggle(label, prop.floatValue > 0.5f);
             if (EditorGUI.EndChangeCheck())
+            {
+                m_MaterialEditor.RegisterPropertyChangeUndo(label);
                 prop.floatValue = on ? 1f : 0f;
+                foreach (var t in m_MaterialEditor.targets)
+                    if (t is Material m) { m.SetFloat(prop.name, prop.floatValue); EditorUtility.SetDirty(m); }
+            }
             EditorGUI.showMixedValue = false;
         }
 
@@ -394,7 +449,7 @@ namespace Dennokoworks.SpecularExV2
             if (!_foldRefl2nd) return;
 
             EditorGUILayout.BeginVertical(boxOuter);
-            DrawToggle(_CustomRefl2ndUIEnabled, Loc("toggle_refl2nd"));
+            DrawToggle(_CustomRefl2ndUIEnabled, _CustomRefl2ndEnabled, null, Loc("toggle_refl2nd"));
             if (IsOn(_CustomRefl2ndUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
@@ -433,7 +488,7 @@ namespace Dennokoworks.SpecularExV2
             if (!_foldRefl3rd) return;
 
             EditorGUILayout.BeginVertical(boxOuter);
-            DrawToggle(_CustomRefl3rdUIEnabled, Loc("toggle_refl3rd"));
+            DrawToggle(_CustomRefl3rdUIEnabled, _CustomRefl3rdEnabled, null, Loc("toggle_refl3rd"));
             if (IsOn(_CustomRefl3rdUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
@@ -472,7 +527,7 @@ namespace Dennokoworks.SpecularExV2
             if (!_foldMatcap) return;
 
             EditorGUILayout.BeginVertical(boxOuter);
-            DrawToggle(_CustomMatcapUIEnabled, Loc("toggle_matcap"));
+            DrawToggle(_CustomMatcapUIEnabled, _CustomMatcapEnabled, _CustomMatcapFrontTex, Loc("toggle_matcap"));
             if (IsOn(_CustomMatcapUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
@@ -517,7 +572,7 @@ namespace Dennokoworks.SpecularExV2
             if (!_foldNormal3rd) return;
 
             EditorGUILayout.BeginVertical(boxOuter);
-            DrawToggle(_CustomNormal3rdUIEnabled, Loc("toggle_normal3rd"));
+            DrawToggle(_CustomNormal3rdUIEnabled, _CustomNormal3rdEnabled, _CustomNormal3rdTex, Loc("toggle_normal3rd"));
             if (IsOn(_CustomNormal3rdUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
@@ -548,7 +603,7 @@ namespace Dennokoworks.SpecularExV2
             if (!_foldRim2nd) return;
 
             EditorGUILayout.BeginVertical(boxOuter);
-            DrawToggle(_CustomRim2ndUIEnabled, Loc("toggle_rim2nd"));
+            DrawToggle(_CustomRim2ndUIEnabled, _CustomRim2ndEnabled, null, Loc("toggle_rim2nd"));
             if (IsOn(_CustomRim2ndUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
