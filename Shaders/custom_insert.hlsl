@@ -39,8 +39,37 @@
 #endif
 
 //----------------------------------------------------------------------------------------------------------------------
+// Common
+//----------------------------------------------------------------------------------------------------------------------
+
+// normalize() that cannot return NaN for a (near) zero vector.
+float3 DNKW_SafeNormalize(float3 v, float3 fallback)
+{
+    float len2 = dot(v, v);
+    return len2 > 1e-8 ? v * rsqrt(len2) : fallback;
+}
+
+// Grazing-angle weight: 1 at strength 0, pow(1 - N.V, power) at strength 1.
+float DNKW_FresnelWeight(float nv, float strength, float power)
+{
+    return lerp(1.0, pow(1.0 - nv, power), strength);
+}
+
+// lilToneCorrection (gamma + HSV shift), skipped at the neutral value so an unused HSVG costs nothing and
+// cannot clamp HDR colors.
+float3 DNKW_ToneCorrection(float3 c, float4 hsvg)
+{
+    if (all(hsvg == float4(0.0, 1.0, 1.0, 1.0))) return c;
+    return lilToneCorrection(c, hsvg);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 // Specular 2nd
 //----------------------------------------------------------------------------------------------------------------------
+
+#define DNKW_CLEARCOAT_F0     0.04
+// _CustomRefl*LightLimit at (or near) its maximum disables the brightness cap.
+#define DNKW_LIGHT_LIMIT_OFF  9.999
 
 // lilToon's reflection is gated by _ApplySpecularFA in the additive pass; Specular 2nd mirrors that.
 bool DNKW_Refl2ndPassEnabled(float applyFA)
@@ -108,6 +137,68 @@ float3 DNKW_Refl2ndSpecular(float3 N, float3 V, float3 L, float smoothness, floa
     #endif
     specularTerm *= nl;
     return specularTerm * lilFresnelTerm(F0, lh);
+}
+
+// Light direction for the highlight. ForwardBase: fd.L blended toward a camera-relative direction
+// (x = right, y = up, z = toward the viewer). headV (surface -> middle of both eyes) is the z axis, so
+// both VR eyes see the highlight at the same place. ForwardAdd lights are real, so they are never moved.
+float3 DNKW_SpecularLightDir(float3 L, float3 cameraRight, float3 cameraUp, float3 headV, float blend, float3 dirCam)
+{
+    #if defined(LIL_PASS_FORWARDADD)
+        return L;
+    #else
+        float3 fakeL = DNKW_SafeNormalize(dirCam.x * cameraRight + dirCam.y * cameraUp + dirCam.z * headV, headV);
+        return DNKW_SafeNormalize(lerp(L, fakeL, blend), fakeL);
+    #endif
+}
+
+// Light color applied to the highlight, mirroring DNKW_MatcapLighting:
+//   ForwardBase: lerp(1, lightColor, enableLighting)  (1 = original behavior)
+//   ForwardAdd : the pass is additive per light, so the light color always scales it.
+float3 DNKW_SpecularLighting(float3 lightColor, float enableLighting)
+{
+    #if !defined(LIL_PASS_FORWARDADD)
+        return lerp(float3(1.0, 1.0, 1.0), lightColor, enableLighting);
+    #else
+        return lightColor * enableLighting;
+    #endif
+}
+
+// Caps the highlight's luminance at limit x the light's luminance, preserving its hue. lilToon only holds
+// fd.lightColor up by _LightMinLimit in dark worlds, so an HDR / high-strength highlight would otherwise
+// still glow there. limit >= DNKW_LIGHT_LIMIT_OFF leaves it untouched.
+float3 DNKW_ApplyLightLimit(float3 contrib, float3 lightColor, float attenuation, float limit)
+{
+    if (limit > DNKW_LIGHT_LIMIT_OFF) return contrib;
+    float cap = limit * lilLuminance(lightColor);
+    #if defined(LIL_PASS_FORWARDADD)
+        cap *= attenuation;
+    #endif
+    return contrib * min(1.0, cap / max(lilLuminance(contrib), 1e-4));
+}
+
+// One specular layer (Specular 2nd / 3rd). Adds the highlight to fd.col; with clear coat on, first darkens
+// what is below by the coat's view Fresnel (F0 = 0.04). That darkening happens at BEFORE_REFLECTION, so
+// lilToon's own reflection / matcap / rim / emission added later are not covered by the coat.
+void DNKW_ApplySpecularLayer(inout lilFragData fd, float mask, float3 color, float strength, float mode,
+    float smoothness, float metallic, float reflectance, float normalStrength, float shadowAttenuation,
+    float mainColorStrength, float fakeLightBlend, float3 fakeLightDir, float enableLighting,
+    float lightLimit, float clearCoat, float fresnelStrength, float fresnelPower)
+{
+    bool   coat  = clearCoat > 0.5;
+    float3 N     = normalize(lerp(fd.origN, fd.N, normalStrength));
+    float3 L     = DNKW_SpecularLightDir(fd.L, fd.cameraRight, fd.cameraUp, fd.headV, fakeLightBlend, fakeLightDir);
+    float  nv    = saturate(dot(N, fd.V));
+    float3 F0    = coat ? (DNKW_CLEARCOAT_F0).xxx : lerp(reflectance.xxx, fd.albedo, metallic);
+    float  atten = DNKW_Refl2ndAttenuation(fd.shadowmix, fd.attenuation, shadowAttenuation);
+    float3 spec  = DNKW_Refl2ndSpecular(N, fd.V, L, smoothness, F0, mode);
+    float3 tint  = color * lerp(float3(1.0, 1.0, 1.0), fd.albedo, mainColorStrength)
+                 * DNKW_SpecularLighting(fd.lightColor, enableLighting);
+    float3 contrib = spec * tint * (strength * mask * atten * DNKW_FresnelWeight(nv, fresnelStrength, fresnelPower));
+    contrib = DNKW_ApplyLightLimit(contrib, fd.lightColor, fd.attenuation, lightLimit);
+
+    if (coat) fd.col.rgb *= 1.0 - lilFresnelTerm((DNKW_CLEARCOAT_F0).xxx, nv) * saturate(strength * mask);
+    fd.col.rgb += contrib;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

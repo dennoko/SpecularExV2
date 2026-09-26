@@ -45,7 +45,7 @@
 | `_CustomRefl2ndFakeLightBlend` | Range(0, 1) | 0 | 実ライト方向 → フェイクライト方向へのブレンド率 |
 | `_CustomRefl2ndFakeLightDir` | Vector | (0.3, 0.5, 1, 0) | カメラ基準の光源方向（x=右, y=上, z=視点側） |
 | `_CustomRefl2ndEnableLighting` | Range(0, 1) | 1 | ライト色を乗算する度合い（1 = 現状の挙動） |
-| `_CustomRefl2ndLightLimit` | Range(0, 10) | 10 | 明るさの上限（ライト輝度に対する倍率）。10 で実質無制限 |
+| `_CustomRefl2ndLightLimit` | Range(0, 10) | 10 | 明るさの上限（ライト輝度に対する倍率）。最大値 10 で無制限（既存マテリアルの見た目を維持） |
 
 **計算**（ForwardBase のみ。ForwardAdd は実在の追加ライトなので補正しない）
 
@@ -65,9 +65,10 @@ float3 L     = normalize(lerp(fd.L, fakeL, fakeBlend));   // ForwardAdd では f
   contrib *= min(1.0, cap / max(lilLuminance(contrib), 1e-4));
   ```
   lilToon の `fd.lightColor` は `_LightMinLimit`（lilToon 側の既定 0.05）で下限クランプされる。このため Strength と HDR カラーを大きくすると、真っ暗な場所でもハイライトが残る。`LightLimit` を 1〜2 程度にすると、こうした浮きを防げる。
-- `lilLuminance` が lilToon に無いバージョンに備えて、`dot(c, float3(0.2126, 0.7152, 0.0722))` の自前ヘルパーを `custom_insert.hlsl` に用意する。
+- 輝度は lilToon の `lilLuminance`（色空間対応）を使う。
+- ForwardAdd ではライト色の反映を `lightColor * EnableLighting` とする（加算パスなので MatCap と同じ扱い）。
 
-**実装箇所**: `custom_insert.hlsl` に `DNKW_Refl2ndLightDir(fd, blend, dir)`（パスで分岐）と `DNKW_ApplyLightLimit(...)` を追加する。`BEFORE_REFLECTION` 内の `fd.L` を置き換える。
+**実装箇所**: `custom_insert.hlsl` に `DNKW_SpecularLightDir`（パスで分岐）・`DNKW_SpecularLighting`・`DNKW_ApplyLightLimit` と、2nd/3rd 共通の `DNKW_ApplySpecularLayer` を追加し、`BEFORE_REFLECTION` はそれを呼ぶだけにする。
 
 ### 1.2 クリアコートモード
 
@@ -272,7 +273,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 |---|---|
 | `Shaders/lilCustomShaderProperties.lilblock` | §1〜4 のプロパティを追加。`_CustomMatcapBackTex` と `_CustomMatcapBackEnabled` を削除。`_CustomMatcapWorldFixed` のコメントを3値に更新 |
 | `Shaders/custom.hlsl` | `LIL_CUSTOM_PROPERTIES` に追加し、`_CustomMatcapFrontTex_TexelSize` も追加。`LIL_CUSTOM_TEXTURES` から Back を削除。各フックマクロを改修 |
-| `Shaders/custom_insert.hlsl` | `DNKW_Refl2ndLightDir`、`DNKW_ApplyLightLimit`、`DNKW_Luminance`、`DNKW_MatcapAtlasUV` を追加。`DNKW_SampleWorldMatcap` を1枚テクスチャ対応に改修 |
+| `Shaders/custom_insert.hlsl` | `DNKW_SpecularLightDir`、`DNKW_SpecularLighting`、`DNKW_ApplyLightLimit`、`DNKW_ApplySpecularLayer`、`DNKW_FresnelWeight`、`DNKW_ToneCorrection`、`DNKW_MatcapAtlasUV` を追加。`DNKW_SampleWorldMatcap` を1枚テクスチャ対応に改修 |
 | `Editor/SpecularExV2Inspector.cs` | プロパティ参照、描画、コピー／ペースト対象リスト、クリアコート時の Metallic/Reflectance 非表示、MatCap 空間モードの Popup 化、旧 Back テクスチャの移行 UI |
 | `Editor/SpecularExMatcapAtlasBaker.cs`（新規） | Front+Back の左右結合ベイク（GPU Blit と PNG 保存） |
 | `Editor/VRCSDK/SpecularExPackedMaskBuildHook.cs` | 未移行の Back テクスチャがあれば警告 |
@@ -294,7 +295,7 @@ _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0
 
 ## 6. 実装フェーズ
 
-- [ ] **Phase A: 互換に影響しない追加（ALU のみ）**
+- [x] **Phase A: 互換に影響しない追加（ALU のみ）**
   - スペキュラー §1.1〜1.3、MatCap §2.1・§2.3・§2.4、ノーマル §3.1・§3.2、リム §4.2〜4.4
   - プロパティ、HLSL、インスペクター、ローカライズを一括で
 - [ ] **Phase B: 見た目が変わる変更**

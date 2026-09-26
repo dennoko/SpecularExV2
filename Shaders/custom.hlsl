@@ -29,6 +29,13 @@
     float  _CustomRefl2ndShadowAttenuation; \
     float  _CustomRefl2ndMainColorStrength; \
     float  _CustomRefl2ndApplyFA; \
+    float  _CustomRefl2ndFakeLightBlend; \
+    float4 _CustomRefl2ndFakeLightDir; \
+    float  _CustomRefl2ndEnableLighting; \
+    float  _CustomRefl2ndLightLimit; \
+    float  _CustomRefl2ndClearCoat; \
+    float  _CustomRefl2ndFresnelStrength; \
+    float  _CustomRefl2ndFresnelPower; \
     float  _CustomRefl2ndEnabled; \
     float4 _CustomRefl2ndMaskTex_ST; \
     float4 _CustomRefl3rdColor; \
@@ -41,6 +48,13 @@
     float  _CustomRefl3rdShadowAttenuation; \
     float  _CustomRefl3rdMainColorStrength; \
     float  _CustomRefl3rdApplyFA; \
+    float  _CustomRefl3rdFakeLightBlend; \
+    float4 _CustomRefl3rdFakeLightDir; \
+    float  _CustomRefl3rdEnableLighting; \
+    float  _CustomRefl3rdLightLimit; \
+    float  _CustomRefl3rdClearCoat; \
+    float  _CustomRefl3rdFresnelStrength; \
+    float  _CustomRefl3rdFresnelPower; \
     float  _CustomRefl3rdEnabled; \
     float4 _CustomRefl3rdMaskTex_ST; \
     float4 _CustomMatcapColor; \
@@ -53,18 +67,27 @@
     float  _CustomMatcapEnableLighting; \
     float  _CustomMatcapShadowStrength; \
     float  _CustomMatcapDisableBackface; \
+    float  _CustomMatcapFresnelStrength; \
+    float  _CustomMatcapFresnelPower; \
+    float4 _CustomMatcapHSVG; \
+    float  _CustomMatcapMainColorStrength; \
     float  _CustomMatcapBackEnabled; \
     float  _CustomMatcapEnabled; \
     float4 _CustomMatcapMaskTex_ST; \
     float4 _CustomNormal3rdTex_ST; \
     float  _CustomNormal3rdStrength; \
     float  _CustomNormal3rdTex_UVMode; \
+    float4 _CustomNormal3rdTex_ScrollRotate; \
+    float4 _CustomNormal3rdDistanceFade; \
     float  _CustomNormal3rdEnabled; \
     float4 _CustomNormal3rdMaskTex_ST; \
     float4 _CustomRim2ndColor; \
     float  _CustomRim2ndStrength; \
     float  _CustomRim2ndPower; \
+    float  _CustomRim2ndBorder; \
     float  _CustomRim2ndBlur; \
+    float  _CustomRim2ndVerticalBias; \
+    float  _CustomRim2ndBacklight; \
     float  _CustomRim2ndBlendMode; \
     float  _CustomRim2ndNormalStrength; \
     float  _CustomRim2ndShadowAttenuation; \
@@ -130,14 +153,20 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // brought to tangent space and Whiteout-blended with the 3rd map via lilBlendNormal, exactly like lilToon
 // blends 1st and 2nd. lilUnpackNormalScale scales tangent xy without clamping, so strength is -2..2
 // (negative flips the relief). The mask (packed .b) scales the strength.
+// The map's UV scrolls/rotates via lilCalcUV (lilToon's ScrollRotate layout); the mask does not move.
+// Distance fade lowers the strength with the head distance fd.depth (set before this hook) to calm
+// moire/shimmering of fine detail far away. The texture is always sampled (no dynamic branch around an
+// implicit-derivative sample).
 #define BEFORE_AUDIOLINK \
     if (_CustomNormal3rdEnabled > 0.5) { \
         float2 _n3UV = fd.uv0; \
         if (_CustomNormal3rdTex_UVMode == 1) _n3UV = fd.uv1; \
         if (_CustomNormal3rdTex_UVMode == 2) _n3UV = fd.uv2; \
         if (_CustomNormal3rdTex_UVMode == 3) _n3UV = fd.uv3; \
-        _n3UV = _n3UV * _CustomNormal3rdTex_ST.xy + _CustomNormal3rdTex_ST.zw; \
+        _n3UV = lilCalcUV(_n3UV, _CustomNormal3rdTex_ST, _CustomNormal3rdTex_ScrollRotate); \
         float  _n3Mask  = DNKW_SAMPLE_MASK(_CustomNormal3rdMaskTex_ST).b; \
+        float4 _n3Fade  = _CustomNormal3rdDistanceFade; \
+        _n3Mask *= lerp(1.0, 1.0 - saturate((fd.depth - _n3Fade.x) / max(_n3Fade.y - _n3Fade.x, 1e-4)), _n3Fade.z); \
         float4 _n3Raw   = LIL_SAMPLE_2D(_CustomNormal3rdTex, sampler_linear_repeat, _n3UV); \
         float3 _n3NTS   = lilUnpackNormalScale(_n3Raw, _CustomNormal3rdStrength * _n3Mask); \
         float3 _n3CurTS = mul(fd.TBN, fd.N); \
@@ -155,24 +184,28 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // (one additional point/spot light per pass: fd.L / fd.lightColor of that light, x fd.attenuation) —
 // ForwardAdd is gated by _CustomRefl2ndApplyFA like lilToon's _ApplySpecularFA.
 // The base color is not darkened by metallic: this is an additive highlight layer on top of lilToon.
+// Extensions (all neutral at their defaults; see DNKW_ApplySpecularLayer in custom_insert.hlsl):
+//   fake light      - ForwardBase light DIRECTION blended toward a camera-relative one (brightness untouched)
+//   enable lighting - how much fd.lightColor tints/limits the highlight (1 = original behavior)
+//   light limit     - luminance cap relative to the light, so highlights do not float in dark worlds
+//   clear coat      - F0 fixed at 0.04 and the base below darkened by the coat's Fresnel
+//   fresnel         - weights the highlight toward grazing angles
 #define BEFORE_REFLECTION \
     if (_CustomRefl2ndEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl2ndApplyFA)) { \
-        float  _s2Mask  = DNKW_SAMPLE_MASK(_CustomRefl2ndMaskTex_ST).r; \
-        float3 _s2N     = normalize(lerp(fd.origN, fd.N, _CustomRefl2ndNormalStrength)); \
-        float3 _s2F0    = lerp(_CustomRefl2ndReflectance.xxx, fd.albedo, _CustomRefl2ndMetallic); \
-        float  _s2Atten = DNKW_Refl2ndAttenuation(fd.shadowmix, fd.attenuation, _CustomRefl2ndShadowAttenuation); \
-        float3 _s2Spec  = DNKW_Refl2ndSpecular(_s2N, fd.V, fd.L, _CustomRefl2ndSmoothness, _s2F0, _CustomRefl2ndMode); \
-        float3 _s2Color = _CustomRefl2ndColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRefl2ndMainColorStrength); \
-        fd.col.rgb += _s2Spec * _s2Color * fd.lightColor * (_CustomRefl2ndStrength * _s2Mask * _s2Atten); \
+        DNKW_ApplySpecularLayer(fd, DNKW_SAMPLE_MASK(_CustomRefl2ndMaskTex_ST).r, \
+            _CustomRefl2ndColor.rgb, _CustomRefl2ndStrength, _CustomRefl2ndMode, _CustomRefl2ndSmoothness, \
+            _CustomRefl2ndMetallic, _CustomRefl2ndReflectance, _CustomRefl2ndNormalStrength, \
+            _CustomRefl2ndShadowAttenuation, _CustomRefl2ndMainColorStrength, \
+            _CustomRefl2ndFakeLightBlend, _CustomRefl2ndFakeLightDir.xyz, _CustomRefl2ndEnableLighting, \
+            _CustomRefl2ndLightLimit, _CustomRefl2ndClearCoat, _CustomRefl2ndFresnelStrength, _CustomRefl2ndFresnelPower); \
     } \
     if (_CustomRefl3rdEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl3rdApplyFA)) { \
-        float  _s3Mask  = DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r; \
-        float3 _s3N     = normalize(lerp(fd.origN, fd.N, _CustomRefl3rdNormalStrength)); \
-        float3 _s3F0    = lerp(_CustomRefl3rdReflectance.xxx, fd.albedo, _CustomRefl3rdMetallic); \
-        float  _s3Atten = DNKW_Refl2ndAttenuation(fd.shadowmix, fd.attenuation, _CustomRefl3rdShadowAttenuation); \
-        float3 _s3Spec  = DNKW_Refl2ndSpecular(_s3N, fd.V, fd.L, _CustomRefl3rdSmoothness, _s3F0, _CustomRefl3rdMode); \
-        float3 _s3Color = _CustomRefl3rdColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRefl3rdMainColorStrength); \
-        fd.col.rgb += _s3Spec * _s3Color * fd.lightColor * (_CustomRefl3rdStrength * _s3Mask * _s3Atten); \
+        DNKW_ApplySpecularLayer(fd, DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r, \
+            _CustomRefl3rdColor.rgb, _CustomRefl3rdStrength, _CustomRefl3rdMode, _CustomRefl3rdSmoothness, \
+            _CustomRefl3rdMetallic, _CustomRefl3rdReflectance, _CustomRefl3rdNormalStrength, \
+            _CustomRefl3rdShadowAttenuation, _CustomRefl3rdMainColorStrength, \
+            _CustomRefl3rdFakeLightBlend, _CustomRefl3rdFakeLightDir.xyz, _CustomRefl3rdEnableLighting, \
+            _CustomRefl3rdLightLimit, _CustomRefl3rdClearCoat, _CustomRefl3rdFresnelStrength, _CustomRefl3rdFresnelPower); \
     }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -184,19 +217,29 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //   R = reflect(-V, N), optionally rotated around world Y (yaw). The highlight therefore stays fixed to the
 //   world while the camera or the avatar turns — a lightweight pseudo cubemap made of two hemispheres
 //   (front = +Z, back = -Z, crossfaded around R.z = 0; see DNKW_SampleWorldMatcap).
+// _CustomMatcapWorldFixed = 2 (Object): same dual-hemisphere lookup, but R is taken to OBJECT space, so the
+//   reflection turns with the avatar and stays still when only the camera moves. Yaw is then around the
+//   object's local Y.
 // Blend modes use lilBlendColor: 0 = Normal, 1 = Add, 2 = Screen, 3 = Multiply.
+// The texture color goes through lilToneCorrection (HSVG, skipped at the neutral value) and can be
+// multiplied by the main color; the opacity can be weighted toward grazing angles (fresnel).
 #define BEFORE_RIMLIGHT \
     if (_CustomMatcapEnabled > 0.5) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
         float4 _wmTex; \
         if (_CustomMatcapWorldFixed > 0.5) { \
-            float3 _wmR = DNKW_RotateYaw(reflect(-fd.V, _wmN), _CustomMatcapWorldRotation); \
+            float3 _wmR = reflect(-fd.V, _wmN); \
+            if (_CustomMatcapWorldFixed > 1.5) _wmR = lilTransformDirWStoOS(_wmR, true); \
+            _wmR = DNKW_RotateYaw(_wmR, _CustomMatcapWorldRotation); \
             _wmTex = DNKW_SampleWorldMatcap(_wmR, _CustomMatcapBackEnabled, _CustomMatcapBlur); \
         } else { \
             _wmTex = DNKW_SampleViewMatcap(mul(fd.cameraMatrix, _wmN).xy * 0.5 + 0.5, _CustomMatcapBlur); \
         } \
-        float3 _wmCol = DNKW_MatcapLighting(_wmTex.rgb * _CustomMatcapColor.rgb, fd.lightColor, _CustomMatcapEnableLighting, _CustomMatcapBlendMode); \
+        float3 _wmRGB = DNKW_ToneCorrection(_wmTex.rgb, _CustomMatcapHSVG); \
+        _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \
+        float3 _wmCol = DNKW_MatcapLighting(_wmRGB, fd.lightColor, _CustomMatcapEnableLighting, _CustomMatcapBlendMode); \
         float  _wmA   = _wmTex.a * _CustomMatcapColor.a * _CustomMatcapAlpha * DNKW_SAMPLE_MASK(_CustomMatcapMaskTex_ST).a; \
+        _wmA *= DNKW_FresnelWeight(saturate(dot(_wmN, fd.V)), _CustomMatcapFresnelStrength, _CustomMatcapFresnelPower); \
         _wmA *= lerp(1.0, fd.shadowmix, _CustomMatcapShadowStrength); \
         _wmA  = (_CustomMatcapDisableBackface > 0.5 && fd.facing < 0.0) ? 0.0 : _wmA; \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _wmCol, _wmA, _CustomMatcapBlendMode); \
@@ -207,16 +250,24 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //
 // Light-direction independent by design (lilToon's _RimLightDirection fixed at 0): a pure view Fresnel
 // term pow(1 - N.V, power). Blur = 1 keeps the soft gradient, 0 turns it into an anti-aliased hard edge at
-// 0.5. Blend modes use lilBlendColor: 0 = Normal (lerp), 1 = Add, 2 = Screen, 3 = Multiply (rim shade).
+// Border (default 0.5; lilTooning-style border/blur). Blend modes use lilBlendColor: 0 = Normal (lerp),
+// 1 = Add, 2 = Screen, 3 = Multiply (rim shade).
+// Direction without light dependence: VerticalBias restricts the rim to up- (+) or down-facing (-)
+// surfaces against WORLD up. Backlight boosts the rim when the light is behind the surface (V.L -> -1);
+// in worlds without a directional light fd.L is lilToon's SH direction.
 // lilToon's Meta pass also expands this hook (twice); DNKW_PASS_META keeps the rim out of lightmap baking.
 #define BEFORE_EMISSION_1ST \
     if (DNKW_PASS_META == 0 && _CustomRim2ndEnabled > 0.5) { \
         float3 _r2N     = normalize(lerp(fd.origN, fd.N, _CustomRim2ndNormalStrength)); \
         float  _r2Val   = pow(saturate(1.0 - saturate(dot(_r2N, fd.V))), _CustomRim2ndPower); \
         float  _r2Half  = _CustomRim2ndBlur * 0.5; \
-        _r2Val = saturate((_r2Val - (0.5 - _r2Half)) / max(_r2Half * 2.0, fwidth(_r2Val) + 1e-4)); \
+        _r2Val = saturate((_r2Val - (_CustomRim2ndBorder - _r2Half)) / max(_r2Half * 2.0, fwidth(_r2Val) + 1e-4)); \
         float  _r2Amt   = _r2Val * _CustomRim2ndStrength * _CustomRim2ndColor.a * DNKW_SAMPLE_MASK(_CustomRim2ndMaskTex_ST).g; \
         _r2Amt *= lerp(1.0, fd.shadowmix, _CustomRim2ndShadowAttenuation); \
+        float  _r2Up    = (_CustomRim2ndVerticalBias >= 0.0 ? _r2N.y : -_r2N.y) * 0.5 + 0.5; \
+        _r2Amt *= lerp(1.0, _r2Up, abs(_CustomRim2ndVerticalBias)); \
+        float  _r2Back  = saturate(-fd.vl); \
+        _r2Amt  = saturate(_r2Amt * (1.0 + _CustomRim2ndBacklight * _r2Back * _r2Back)); \
         float3 _r2Color = _CustomRim2ndColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomRim2ndMainColorStrength); \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _r2Color, _r2Amt, _CustomRim2ndBlendMode); \
     }

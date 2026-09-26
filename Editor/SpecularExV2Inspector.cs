@@ -22,6 +22,13 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRefl2ndShadowAttenuation;
         MaterialProperty _CustomRefl2ndMainColorStrength;
         MaterialProperty _CustomRefl2ndApplyFA;
+        MaterialProperty _CustomRefl2ndFakeLightBlend;
+        MaterialProperty _CustomRefl2ndFakeLightDir;
+        MaterialProperty _CustomRefl2ndEnableLighting;
+        MaterialProperty _CustomRefl2ndLightLimit;
+        MaterialProperty _CustomRefl2ndClearCoat;
+        MaterialProperty _CustomRefl2ndFresnelStrength;
+        MaterialProperty _CustomRefl2ndFresnelPower;
         MaterialProperty _CustomRefl2ndMaskTex;
 
         // -- Specular 3rd --
@@ -37,6 +44,13 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRefl3rdShadowAttenuation;
         MaterialProperty _CustomRefl3rdMainColorStrength;
         MaterialProperty _CustomRefl3rdApplyFA;
+        MaterialProperty _CustomRefl3rdFakeLightBlend;
+        MaterialProperty _CustomRefl3rdFakeLightDir;
+        MaterialProperty _CustomRefl3rdEnableLighting;
+        MaterialProperty _CustomRefl3rdLightLimit;
+        MaterialProperty _CustomRefl3rdClearCoat;
+        MaterialProperty _CustomRefl3rdFresnelStrength;
+        MaterialProperty _CustomRefl3rdFresnelPower;
         MaterialProperty _CustomRefl3rdMaskTex;
 
         // -- World MatCap --
@@ -55,6 +69,10 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomMatcapEnableLighting;
         MaterialProperty _CustomMatcapShadowStrength;
         MaterialProperty _CustomMatcapDisableBackface;
+        MaterialProperty _CustomMatcapFresnelStrength;
+        MaterialProperty _CustomMatcapFresnelPower;
+        MaterialProperty _CustomMatcapHSVG;
+        MaterialProperty _CustomMatcapMainColorStrength;
         MaterialProperty _CustomMatcapMaskTex;
 
         // -- Normal Map 3rd --
@@ -63,6 +81,8 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomNormal3rdTex;
         MaterialProperty _CustomNormal3rdStrength;
         MaterialProperty _CustomNormal3rdTex_UVMode;
+        MaterialProperty _CustomNormal3rdTex_ScrollRotate;
+        MaterialProperty _CustomNormal3rdDistanceFade;
         MaterialProperty _CustomNormal3rdMaskTex;
 
         // -- Rim Light 2nd --
@@ -72,6 +92,9 @@ namespace Dennokoworks.SpecularExV2
         MaterialProperty _CustomRim2ndStrength;
         MaterialProperty _CustomRim2ndPower;
         MaterialProperty _CustomRim2ndBlur;
+        MaterialProperty _CustomRim2ndBorder;
+        MaterialProperty _CustomRim2ndVerticalBias;
+        MaterialProperty _CustomRim2ndBacklight;
         MaterialProperty _CustomRim2ndBlendMode;
         MaterialProperty _CustomRim2ndNormalStrength;
         MaterialProperty _CustomRim2ndShadowAttenuation;
@@ -116,6 +139,13 @@ namespace Dennokoworks.SpecularExV2
             _CustomRefl2ndShadowAttenuation  = FindProperty("_CustomRefl2ndShadowAttenuation",  props, false);
             _CustomRefl2ndMainColorStrength  = FindProperty("_CustomRefl2ndMainColorStrength",  props, false);
             _CustomRefl2ndApplyFA            = FindProperty("_CustomRefl2ndApplyFA",            props, false);
+            _CustomRefl2ndFakeLightBlend = FindProperty("_CustomRefl2ndFakeLightBlend", props, false);
+            _CustomRefl2ndFakeLightDir = FindProperty("_CustomRefl2ndFakeLightDir", props, false);
+            _CustomRefl2ndEnableLighting = FindProperty("_CustomRefl2ndEnableLighting", props, false);
+            _CustomRefl2ndLightLimit = FindProperty("_CustomRefl2ndLightLimit", props, false);
+            _CustomRefl2ndClearCoat = FindProperty("_CustomRefl2ndClearCoat", props, false);
+            _CustomRefl2ndFresnelStrength = FindProperty("_CustomRefl2ndFresnelStrength", props, false);
+            _CustomRefl2ndFresnelPower = FindProperty("_CustomRefl2ndFresnelPower", props, false);
             _CustomRefl2ndMaskTex            = FindProperty("_CustomRefl2ndMaskTex",            props, false);
 
             _CustomRefl3rdUIEnabled          = FindProperty("_CustomRefl3rdUIEnabled",          props, false);
@@ -130,6 +160,13 @@ namespace Dennokoworks.SpecularExV2
             _CustomRefl3rdShadowAttenuation  = FindProperty("_CustomRefl3rdShadowAttenuation",  props, false);
             _CustomRefl3rdMainColorStrength  = FindProperty("_CustomRefl3rdMainColorStrength",  props, false);
             _CustomRefl3rdApplyFA            = FindProperty("_CustomRefl3rdApplyFA",            props, false);
+            _CustomRefl3rdFakeLightBlend = FindProperty("_CustomRefl3rdFakeLightBlend", props, false);
+            _CustomRefl3rdFakeLightDir = FindProperty("_CustomRefl3rdFakeLightDir", props, false);
+            _CustomRefl3rdEnableLighting = FindProperty("_CustomRefl3rdEnableLighting", props, false);
+            _CustomRefl3rdLightLimit = FindProperty("_CustomRefl3rdLightLimit", props, false);
+            _CustomRefl3rdClearCoat = FindProperty("_CustomRefl3rdClearCoat", props, false);
+            _CustomRefl3rdFresnelStrength = FindProperty("_CustomRefl3rdFresnelStrength", props, false);
+            _CustomRefl3rdFresnelPower = FindProperty("_CustomRefl3rdFresnelPower", props, false);
             _CustomRefl3rdMaskTex            = FindProperty("_CustomRefl3rdMaskTex",            props, false);
 
             _CustomMatcapUIEnabled           = FindProperty("_CustomMatcapUIEnabled",           props, false);
@@ -147,6 +184,10 @@ namespace Dennokoworks.SpecularExV2
             _CustomMatcapEnableLighting      = FindProperty("_CustomMatcapEnableLighting",      props, false);
             _CustomMatcapShadowStrength      = FindProperty("_CustomMatcapShadowStrength",      props, false);
             _CustomMatcapDisableBackface     = FindProperty("_CustomMatcapDisableBackface",     props, false);
+            _CustomMatcapFresnelStrength = FindProperty("_CustomMatcapFresnelStrength", props, false);
+            _CustomMatcapFresnelPower = FindProperty("_CustomMatcapFresnelPower", props, false);
+            _CustomMatcapHSVG = FindProperty("_CustomMatcapHSVG", props, false);
+            _CustomMatcapMainColorStrength = FindProperty("_CustomMatcapMainColorStrength", props, false);
             _CustomMatcapMaskTex             = FindProperty("_CustomMatcapMaskTex",             props, false);
 
             _CustomNormal3rdUIEnabled        = FindProperty("_CustomNormal3rdUIEnabled",        props, false);
@@ -154,6 +195,8 @@ namespace Dennokoworks.SpecularExV2
             _CustomNormal3rdTex              = FindProperty("_CustomNormal3rdTex",              props, false);
             _CustomNormal3rdStrength         = FindProperty("_CustomNormal3rdStrength",         props, false);
             _CustomNormal3rdTex_UVMode       = FindProperty("_CustomNormal3rdTex_UVMode",       props, false);
+            _CustomNormal3rdTex_ScrollRotate = FindProperty("_CustomNormal3rdTex_ScrollRotate", props, false);
+            _CustomNormal3rdDistanceFade = FindProperty("_CustomNormal3rdDistanceFade", props, false);
             _CustomNormal3rdMaskTex          = FindProperty("_CustomNormal3rdMaskTex",          props, false);
 
             _CustomRim2ndUIEnabled           = FindProperty("_CustomRim2ndUIEnabled",           props, false);
@@ -162,6 +205,9 @@ namespace Dennokoworks.SpecularExV2
             _CustomRim2ndStrength            = FindProperty("_CustomRim2ndStrength",            props, false);
             _CustomRim2ndPower               = FindProperty("_CustomRim2ndPower",               props, false);
             _CustomRim2ndBlur                = FindProperty("_CustomRim2ndBlur",                props, false);
+            _CustomRim2ndBorder = FindProperty("_CustomRim2ndBorder", props, false);
+            _CustomRim2ndVerticalBias = FindProperty("_CustomRim2ndVerticalBias", props, false);
+            _CustomRim2ndBacklight = FindProperty("_CustomRim2ndBacklight", props, false);
             _CustomRim2ndBlendMode           = FindProperty("_CustomRim2ndBlendMode",           props, false);
             _CustomRim2ndNormalStrength      = FindProperty("_CustomRim2ndNormalStrength",      props, false);
             _CustomRim2ndShadowAttenuation   = FindProperty("_CustomRim2ndShadowAttenuation",   props, false);
@@ -340,7 +386,59 @@ namespace Dennokoworks.SpecularExV2
             EditorGUI.showMixedValue = false;
         }
 
+        // One component of a Vector property as a slider (HSVG, distance fade...).
+        void VecSlider(MaterialProperty prop, int index, string label, float min, float max)
+        {
+            if (prop == null) return;
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            Vector4 v = prop.vectorValue;
+            float f = EditorGUILayout.Slider(label, v[index], min, max);
+            if (EditorGUI.EndChangeCheck()) { v[index] = f; prop.vectorValue = v; }
+            EditorGUI.showMixedValue = false;
+        }
+
+        // One component of a Vector property as a float field, shown multiplied by displayScale
+        // (e.g. radians stored, degrees shown).
+        void VecFloat(MaterialProperty prop, int index, string label, float displayScale = 1f)
+        {
+            if (prop == null) return;
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            Vector4 v = prop.vectorValue;
+            float f = EditorGUILayout.FloatField(label, v[index] * displayScale);
+            if (EditorGUI.EndChangeCheck()) { v[index] = f / displayScale; prop.vectorValue = v; }
+            EditorGUI.showMixedValue = false;
+        }
+
+        // xy of a Vector property as one Vector2 field (UV scroll).
+        void Vec2Prop(MaterialProperty prop, string label)
+        {
+            if (prop == null) return;
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            Vector4 v = prop.vectorValue;
+            Vector2 f = EditorGUILayout.Vector2Field(label, new Vector2(v.x, v.y));
+            if (EditorGUI.EndChangeCheck()) { v.x = f.x; v.y = f.y; prop.vectorValue = v; }
+            EditorGUI.showMixedValue = false;
+        }
+
+        // xyz of a Vector property as one Vector3 field (fake light direction).
+        void Vec3Prop(MaterialProperty prop, string label)
+        {
+            if (prop == null) return;
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            Vector4 v = prop.vectorValue;
+            Vector3 f = EditorGUILayout.Vector3Field(label, new Vector3(v.x, v.y, v.z));
+            if (EditorGUI.EndChangeCheck()) { v.x = f.x; v.y = f.y; v.z = f.z; prop.vectorValue = v; }
+            EditorGUI.showMixedValue = false;
+        }
+
         static bool IsOn(MaterialProperty prop) => prop != null && prop.floatValue > 0.5f;
+
+        // Mixed selections count as on, so the fields they show are never hidden while one material uses them.
+        static bool IsOnOrMixed(MaterialProperty prop) => prop != null && (prop.hasMixedValue || prop.floatValue > 0.5f);
 
         string[] BlendModes() => new[] { Loc("blend_normal"), Loc("blend_add"), Loc("blend_screen"), Loc("blend_mul") };
 
@@ -444,7 +542,10 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRefl2ndMetallic,          _CustomRefl2ndReflectance,
                 _CustomRefl2ndNormalStrength,    _CustomRefl2ndShadowAttenuation,
                 _CustomRefl2ndMainColorStrength, _CustomRefl2ndApplyFA,
-                _CustomRefl2ndMaskTex,
+                _CustomRefl2ndFakeLightBlend,    _CustomRefl2ndFakeLightDir,
+                _CustomRefl2ndEnableLighting,    _CustomRefl2ndLightLimit,
+                _CustomRefl2ndClearCoat,         _CustomRefl2ndFresnelStrength,
+                _CustomRefl2ndFresnelPower,      _CustomRefl2ndMaskTex,
             });
             if (!_foldRefl2nd) return;
 
@@ -458,8 +559,20 @@ namespace Dennokoworks.SpecularExV2
                 lilEditorGUI.DrawLine();
                 PopupProp(_CustomRefl2ndMode, Loc("label_mode"), new[] { Loc("mode_ggx"), Loc("mode_blinn") });
                 Prop(_CustomRefl2ndSmoothness,  Loc("label_smoothness"));
-                Prop(_CustomRefl2ndMetallic,    Loc("label_metallic"));
-                Prop(_CustomRefl2ndReflectance, Loc("label_reflectance"));
+                BoolProp(_CustomRefl2ndClearCoat, Loc("label_clear_coat"));
+                if (!IsOnOrMixed(_CustomRefl2ndClearCoat))
+                {
+                    Prop(_CustomRefl2ndMetallic,    Loc("label_metallic"));
+                    Prop(_CustomRefl2ndReflectance, Loc("label_reflectance"));
+                }
+                else EditorGUILayout.HelpBox(Loc("help_clear_coat"), MessageType.None);
+                Prop(_CustomRefl2ndFresnelStrength, Loc("label_fresnel_strength"));
+                Prop(_CustomRefl2ndFresnelPower,    Loc("label_fresnel_power"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRefl2ndEnableLighting, Loc("label_enable_lighting"));
+                Prop(_CustomRefl2ndLightLimit,     Loc("label_light_limit"));
+                Prop(_CustomRefl2ndFakeLightBlend, Loc("label_fake_light_blend"));
+                Vec3Prop(_CustomRefl2ndFakeLightDir, Loc("label_fake_light_dir"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRefl2ndNormalStrength,    Loc("label_normal_strength"));
                 Prop(_CustomRefl2ndShadowAttenuation, Loc("label_shadow_attenuation"));
@@ -483,7 +596,10 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRefl3rdMetallic,          _CustomRefl3rdReflectance,
                 _CustomRefl3rdNormalStrength,    _CustomRefl3rdShadowAttenuation,
                 _CustomRefl3rdMainColorStrength, _CustomRefl3rdApplyFA,
-                _CustomRefl3rdMaskTex,
+                _CustomRefl3rdFakeLightBlend,    _CustomRefl3rdFakeLightDir,
+                _CustomRefl3rdEnableLighting,    _CustomRefl3rdLightLimit,
+                _CustomRefl3rdClearCoat,         _CustomRefl3rdFresnelStrength,
+                _CustomRefl3rdFresnelPower,      _CustomRefl3rdMaskTex,
             });
             if (!_foldRefl3rd) return;
 
@@ -497,8 +613,20 @@ namespace Dennokoworks.SpecularExV2
                 lilEditorGUI.DrawLine();
                 PopupProp(_CustomRefl3rdMode, Loc("label_mode"), new[] { Loc("mode_ggx"), Loc("mode_blinn") });
                 Prop(_CustomRefl3rdSmoothness,  Loc("label_smoothness"));
-                Prop(_CustomRefl3rdMetallic,    Loc("label_metallic"));
-                Prop(_CustomRefl3rdReflectance, Loc("label_reflectance"));
+                BoolProp(_CustomRefl3rdClearCoat, Loc("label_clear_coat"));
+                if (!IsOnOrMixed(_CustomRefl3rdClearCoat))
+                {
+                    Prop(_CustomRefl3rdMetallic,    Loc("label_metallic"));
+                    Prop(_CustomRefl3rdReflectance, Loc("label_reflectance"));
+                }
+                else EditorGUILayout.HelpBox(Loc("help_clear_coat"), MessageType.None);
+                Prop(_CustomRefl3rdFresnelStrength, Loc("label_fresnel_strength"));
+                Prop(_CustomRefl3rdFresnelPower,    Loc("label_fresnel_power"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRefl3rdEnableLighting, Loc("label_enable_lighting"));
+                Prop(_CustomRefl3rdLightLimit,     Loc("label_light_limit"));
+                Prop(_CustomRefl3rdFakeLightBlend, Loc("label_fake_light_blend"));
+                Vec3Prop(_CustomRefl3rdFakeLightDir, Loc("label_fake_light_dir"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRefl3rdNormalStrength,    Loc("label_normal_strength"));
                 Prop(_CustomRefl3rdShadowAttenuation, Loc("label_shadow_attenuation"));
@@ -516,13 +644,15 @@ namespace Dennokoworks.SpecularExV2
         {
             _foldMatcap = Foldout(Loc("foldout_matcap"), _foldMatcap);
             DrawSectionMenu(new[] {
-                _CustomMatcapUIEnabled,       _CustomMatcapEnabled,
-                _CustomMatcapFrontTex,        _CustomMatcapBackTex,        _CustomMatcapBackEnabled,
-                _CustomMatcapColor,           _CustomMatcapAlpha,
-                _CustomMatcapBlendMode,       _CustomMatcapBlur,
-                _CustomMatcapWorldFixed,      _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
-                _CustomMatcapEnableLighting,  _CustomMatcapShadowStrength,
-                _CustomMatcapDisableBackface, _CustomMatcapMaskTex,
+                _CustomMatcapUIEnabled,         _CustomMatcapEnabled,
+                _CustomMatcapFrontTex,          _CustomMatcapBackTex,        _CustomMatcapBackEnabled,
+                _CustomMatcapColor,             _CustomMatcapAlpha,
+                _CustomMatcapBlendMode,         _CustomMatcapBlur,
+                _CustomMatcapWorldFixed,        _CustomMatcapWorldRotation,  _CustomMatcapNormalStrength,
+                _CustomMatcapEnableLighting,    _CustomMatcapShadowStrength,
+                _CustomMatcapDisableBackface,   _CustomMatcapMaskTex,
+                _CustomMatcapFresnelStrength,   _CustomMatcapFresnelPower,
+                _CustomMatcapHSVG,              _CustomMatcapMainColorStrength,
             });
             if (!_foldMatcap) return;
 
@@ -531,24 +661,31 @@ namespace Dennokoworks.SpecularExV2
             if (IsOn(_CustomMatcapUIEnabled))
             {
                 EditorGUILayout.BeginVertical(boxInnerHalf);
-                BoolProp(_CustomMatcapWorldFixed, Loc("label_world_fixed"));
-                // Mixed selection shows the world-only fields too, so none of them is hidden while it matters.
-                bool worldFixed = _CustomMatcapWorldFixed != null
-                    && (_CustomMatcapWorldFixed.hasMixedValue || _CustomMatcapWorldFixed.floatValue > 0.5f);
+                PopupProp(_CustomMatcapWorldFixed, Loc("label_matcap_space"), new[] { Loc("space_view"), Loc("space_world"), Loc("space_object") });
+                // World / Object share the dual-hemisphere fields. Mixed selection shows them too, so none of
+                // them is hidden while it matters.
+                bool hemisphere = IsOnOrMixed(_CustomMatcapWorldFixed);
                 lilEditorGUI.DrawLine();
-                Prop(_CustomMatcapFrontTex, Loc(worldFixed ? "label_front_tex" : "label_texture"));
-                if (worldFixed) Prop(_CustomMatcapBackTex, Loc("label_back_tex"));
+                Prop(_CustomMatcapFrontTex, Loc(hemisphere ? "label_front_tex" : "label_texture"));
+                if (hemisphere) Prop(_CustomMatcapBackTex, Loc("label_back_tex"));
                 if (_CustomMatcapFrontTex != null && _CustomMatcapFrontTex.textureValue == null && !_CustomMatcapFrontTex.hasMixedValue)
                     EditorGUILayout.HelpBox(Loc("help_matcap_front_missing"), MessageType.Info);
-                else if (worldFixed && _CustomMatcapBackTex != null && _CustomMatcapBackTex.textureValue == null && !_CustomMatcapBackTex.hasMixedValue)
+                else if (hemisphere && _CustomMatcapBackTex != null && _CustomMatcapBackTex.textureValue == null && !_CustomMatcapBackTex.hasMixedValue)
                     EditorGUILayout.HelpBox(Loc("help_matcap_back"), MessageType.None);
                 Prop(_CustomMatcapColor, Loc("label_color"));
                 Prop(_CustomMatcapAlpha, Loc("label_alpha"));
                 PopupProp(_CustomMatcapBlendMode, Loc("label_blend_mode"), BlendModes());
+                Prop(_CustomMatcapMainColorStrength, Loc("label_main_color_strength"));
+                VecSlider(_CustomMatcapHSVG, 0, Loc("label_hue"),        -0.5f, 0.5f);
+                VecSlider(_CustomMatcapHSVG, 1, Loc("label_saturation"),  0f,   2f);
+                VecSlider(_CustomMatcapHSVG, 2, Loc("label_value"),       0f,   2f);
+                VecSlider(_CustomMatcapHSVG, 3, Loc("label_gamma"),       0.01f, 2f);
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapBlur, Loc("label_blur"));
-                if (worldFixed) Prop(_CustomMatcapWorldRotation, Loc("label_world_rotation"));
+                if (hemisphere) Prop(_CustomMatcapWorldRotation, Loc("label_world_rotation"));
                 Prop(_CustomMatcapNormalStrength, Loc("label_normal_strength"));
+                Prop(_CustomMatcapFresnelStrength, Loc("label_fresnel_strength"));
+                Prop(_CustomMatcapFresnelPower,    Loc("label_fresnel_power"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapEnableLighting,     Loc("label_enable_lighting"));
                 Prop(_CustomMatcapShadowStrength,     Loc("label_shadow_strength"));
@@ -565,9 +702,10 @@ namespace Dennokoworks.SpecularExV2
         {
             _foldNormal3rd = Foldout(Loc("foldout_normal3rd"), _foldNormal3rd);
             DrawSectionMenu(new[] {
-                _CustomNormal3rdUIEnabled, _CustomNormal3rdEnabled,
-                _CustomNormal3rdTex,       _CustomNormal3rdStrength,
-                _CustomNormal3rdTex_UVMode, _CustomNormal3rdMaskTex,
+                _CustomNormal3rdUIEnabled,         _CustomNormal3rdEnabled,
+                _CustomNormal3rdTex,               _CustomNormal3rdStrength,
+                _CustomNormal3rdTex_UVMode,        _CustomNormal3rdMaskTex,
+                _CustomNormal3rdTex_ScrollRotate,  _CustomNormal3rdDistanceFade,
             });
             if (!_foldNormal3rd) return;
 
@@ -581,6 +719,14 @@ namespace Dennokoworks.SpecularExV2
                     EditorGUILayout.HelpBox(Loc("help_normal3rd_missing"), MessageType.Info);
                 Prop(_CustomNormal3rdStrength, Loc("label_strength"));
                 PopupProp(_CustomNormal3rdTex_UVMode, Loc("label_uv_mode"), new[] { Loc("uv0"), Loc("uv1"), Loc("uv2"), Loc("uv3") });
+                // Angle and rotation speed are stored in radians (lilToon ScrollRotate layout), shown in degrees.
+                Vec2Prop(_CustomNormal3rdTex_ScrollRotate, Loc("label_uv_scroll"));
+                VecFloat(_CustomNormal3rdTex_ScrollRotate, 2, Loc("label_uv_angle"),        Mathf.Rad2Deg);
+                VecFloat(_CustomNormal3rdTex_ScrollRotate, 3, Loc("label_uv_rotate_speed"), Mathf.Rad2Deg);
+                lilEditorGUI.DrawLine();
+                VecFloat(_CustomNormal3rdDistanceFade,  0, Loc("label_distance_fade_start"));
+                VecFloat(_CustomNormal3rdDistanceFade,  1, Loc("label_distance_fade_end"));
+                VecSlider(_CustomNormal3rdDistanceFade, 2, Loc("label_distance_fade_strength"), 0f, 1f);
                 lilEditorGUI.DrawLine();
                 Prop(_CustomNormal3rdMaskTex, Loc("label_mask"));
                 EditorGUILayout.EndVertical();
@@ -598,7 +744,8 @@ namespace Dennokoworks.SpecularExV2
                 _CustomRim2ndPower,             _CustomRim2ndBlur,
                 _CustomRim2ndBlendMode,         _CustomRim2ndNormalStrength,
                 _CustomRim2ndShadowAttenuation, _CustomRim2ndMainColorStrength,
-                _CustomRim2ndMaskTex,
+                _CustomRim2ndMaskTex,           _CustomRim2ndBorder,
+                _CustomRim2ndVerticalBias,      _CustomRim2ndBacklight,
             });
             if (!_foldRim2nd) return;
 
@@ -611,8 +758,12 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomRim2ndStrength, Loc("label_strength"));
                 PopupProp(_CustomRim2ndBlendMode, Loc("label_blend_mode"), BlendModes());
                 lilEditorGUI.DrawLine();
-                Prop(_CustomRim2ndPower, Loc("label_power"));
-                Prop(_CustomRim2ndBlur,  Loc("label_rim_blur"));
+                Prop(_CustomRim2ndPower,  Loc("label_power"));
+                Prop(_CustomRim2ndBorder, Loc("label_border"));
+                Prop(_CustomRim2ndBlur,   Loc("label_rim_blur"));
+                lilEditorGUI.DrawLine();
+                Prop(_CustomRim2ndVerticalBias, Loc("label_vertical_bias"));
+                Prop(_CustomRim2ndBacklight,    Loc("label_backlight"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomRim2ndNormalStrength,    Loc("label_normal_strength"));
                 Prop(_CustomRim2ndShadowAttenuation, Loc("label_shadow_attenuation"));

@@ -23,6 +23,18 @@
         _CustomRefl2ndShadowAttenuation ("Specular 2nd Shadow Attenuation", Range(0, 1)) = 1
         _CustomRefl2ndMainColorStrength ("Specular 2nd Main Color Strength", Range(0, 1)) = 0
         _CustomRefl2ndApplyFA ("Specular 2nd Apply ForwardAdd", Float) = 1
+        // Light direction override (ForwardBase only): blends fd.L toward a camera-relative direction
+        // (x = right, y = up, z = toward the viewer). Only the direction changes; brightness still follows
+        // the scene lighting.
+        _CustomRefl2ndFakeLightBlend ("Specular 2nd Fake Light Blend", Range(0, 1)) = 0
+        _CustomRefl2ndFakeLightDir ("Specular 2nd Fake Light Direction", Vector) = (0.3, 0.5, 1, 0)
+        _CustomRefl2ndEnableLighting ("Specular 2nd Enable Lighting", Range(0, 1)) = 1
+        // Brightness cap relative to the light luminance (10 = unlimited). Keeps highlights from floating
+        // in dark worlds, where lilToon's light color is only held up by _LightMinLimit.
+        _CustomRefl2ndLightLimit ("Specular 2nd Light Limit", Range(0, 10)) = 10
+        _CustomRefl2ndClearCoat ("Specular 2nd Clear Coat", Float) = 0
+        _CustomRefl2ndFresnelStrength ("Specular 2nd Fresnel Strength", Range(0, 1)) = 0
+        _CustomRefl2ndFresnelPower ("Specular 2nd Fresnel Power", Range(0.5, 10)) = 5
         _CustomRefl2ndMaskTex ("Specular 2nd Mask", 2D) = "white" {}
 
         //----------------------------------------------------------------------------------------------------------------------
@@ -39,6 +51,18 @@
         _CustomRefl3rdShadowAttenuation ("Specular 3rd Shadow Attenuation", Range(0, 1)) = 1
         _CustomRefl3rdMainColorStrength ("Specular 3rd Main Color Strength", Range(0, 1)) = 0
         _CustomRefl3rdApplyFA ("Specular 3rd Apply ForwardAdd", Float) = 1
+        // Light direction override (ForwardBase only): blends fd.L toward a camera-relative direction
+        // (x = right, y = up, z = toward the viewer). Only the direction changes; brightness still follows
+        // the scene lighting.
+        _CustomRefl3rdFakeLightBlend ("Specular 3rd Fake Light Blend", Range(0, 1)) = 0
+        _CustomRefl3rdFakeLightDir ("Specular 3rd Fake Light Direction", Vector) = (0.3, 0.5, 1, 0)
+        _CustomRefl3rdEnableLighting ("Specular 3rd Enable Lighting", Range(0, 1)) = 1
+        // Brightness cap relative to the light luminance (10 = unlimited). Keeps highlights from floating
+        // in dark worlds, where lilToon's light color is only held up by _LightMinLimit.
+        _CustomRefl3rdLightLimit ("Specular 3rd Light Limit", Range(0, 10)) = 10
+        _CustomRefl3rdClearCoat ("Specular 3rd Clear Coat", Float) = 0
+        _CustomRefl3rdFresnelStrength ("Specular 3rd Fresnel Strength", Range(0, 1)) = 0
+        _CustomRefl3rdFresnelPower ("Specular 3rd Fresnel Power", Range(0.5, 10)) = 5
         _CustomRefl3rdMaskTex ("Specular 3rd Mask", 2D) = "white" {}
 
         //----------------------------------------------------------------------------------------------------------------------
@@ -54,13 +78,18 @@
         _CustomMatcapAlpha ("World MatCap Strength", Range(0, 1)) = 1
         _CustomMatcapBlendMode ("World MatCap Blend Mode", Float) = 1
         _CustomMatcapBlur ("World MatCap Blur", Range(0, 10)) = 0
-        // 0 = ordinary view-space matcap (Front texture only), 1 = world-fixed dual-hemisphere matcap.
-        _CustomMatcapWorldFixed ("World MatCap World Fixed", Float) = 0
+        // Space mode (name kept for compatibility): 0 = View (ordinary matcap, Front texture only),
+        // 1 = World (world-fixed dual-hemisphere), 2 = Object (dual-hemisphere fixed to the object).
+        _CustomMatcapWorldFixed ("World MatCap Space", Float) = 0
         _CustomMatcapWorldRotation ("World MatCap Yaw Rotation", Range(-180, 180)) = 0
         _CustomMatcapNormalStrength ("World MatCap Normal Strength", Range(0, 1)) = 1
         _CustomMatcapEnableLighting ("World MatCap Enable Lighting", Range(0, 1)) = 1
         _CustomMatcapShadowStrength ("World MatCap Shadow Strength", Range(0, 1)) = 0
         _CustomMatcapDisableBackface ("World MatCap Disable Backface", Float) = 1
+        _CustomMatcapFresnelStrength ("World MatCap Fresnel Strength", Range(0, 1)) = 0
+        _CustomMatcapFresnelPower ("World MatCap Fresnel Power", Range(0.5, 10)) = 3
+        _CustomMatcapHSVG ("World MatCap HSVG", Vector) = (0, 1, 1, 1)
+        _CustomMatcapMainColorStrength ("World MatCap Main Color Strength", Range(0, 1)) = 0
         _CustomMatcapMaskTex ("World MatCap Mask", 2D) = "white" {}
 
         //----------------------------------------------------------------------------------------------------------------------
@@ -70,6 +99,10 @@
         [Normal] _CustomNormal3rdTex ("Normal Map 3rd", 2D) = "bump" {}
         _CustomNormal3rdStrength ("Normal Map 3rd Strength", Range(-2, 2)) = 1
         _CustomNormal3rdTex_UVMode ("Normal Map 3rd UV Mode", Float) = 0
+        // x, y = scroll speed, z = angle (rad), w = rotation speed (lilToon _MainTex_ScrollRotate layout).
+        _CustomNormal3rdTex_ScrollRotate ("Normal Map 3rd Scroll Rotate", Vector) = (0, 0, 0, 0)
+        // x = fade start [m], y = fade end [m], z = fade strength (0 = off).
+        _CustomNormal3rdDistanceFade ("Normal Map 3rd Distance Fade", Vector) = (2, 10, 0, 0)
         _CustomNormal3rdMaskTex ("Normal Map 3rd Mask", 2D) = "white" {}
 
         //----------------------------------------------------------------------------------------------------------------------
@@ -79,7 +112,11 @@
         [HDR] _CustomRim2ndColor ("Rim Light 2nd Color", Color) = (1, 1, 1, 1)
         _CustomRim2ndStrength ("Rim Light 2nd Strength", Range(0, 1)) = 1
         _CustomRim2ndPower ("Rim Light 2nd Power", Range(0.1, 32)) = 3
+        _CustomRim2ndBorder ("Rim Light 2nd Border", Range(0, 1)) = 0.5
         _CustomRim2ndBlur ("Rim Light 2nd Blur", Range(0, 1)) = 1
+        // +: upward-facing surfaces only, -: downward-facing only, 0: no restriction (world up).
+        _CustomRim2ndVerticalBias ("Rim Light 2nd Vertical Bias", Range(-1, 1)) = 0
+        _CustomRim2ndBacklight ("Rim Light 2nd Backlight Boost", Range(0, 4)) = 0
         _CustomRim2ndBlendMode ("Rim Light 2nd Blend Mode", Float) = 1
         _CustomRim2ndNormalStrength ("Rim Light 2nd Normal Strength", Range(0, 1)) = 1
         _CustomRim2ndShadowAttenuation ("Rim Light 2nd Shadow Attenuation", Range(0, 1)) = 0
