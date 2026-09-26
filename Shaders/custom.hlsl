@@ -192,7 +192,8 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // Distance fade lowers the strength with the head distance fd.depth (set before this hook) to calm
 // moire/shimmering of fine detail far away. The texture is always sampled inside the layer (no dynamic
 // branch around an implicit-derivative sample; the enable flags are uniform).
-// The derived normals are refreshed once, after both layers.
+// The derived normals are refreshed once, after both layers. A layer at strength 0 is skipped (the
+// refresh still runs while the feature is enabled, so lilToon's derived normals behave the same).
 #define DNKW_NORMAL_LAYER(tex, st, uvMode, scrollRotate, fade, strength, maskValue) \
     { \
         float2 _nUV = fd.uv0; \
@@ -212,8 +213,8 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 
 #define BEFORE_AUDIOLINK \
     if (_CustomNormal3rdEnabled > 0.5 || _CustomNormal4thEnabled > 0.5) { \
-        if (_CustomNormal3rdEnabled > 0.5) DNKW_NORMAL_LAYER(_CustomNormal3rdTex, _CustomNormal3rdTex_ST, _CustomNormal3rdTex_UVMode, _CustomNormal3rdTex_ScrollRotate, _CustomNormal3rdDistanceFade, _CustomNormal3rdStrength, DNKW_SAMPLE_MASK(_CustomNormal3rdMaskTex_ST).b) \
-        if (_CustomNormal4thEnabled > 0.5) DNKW_NORMAL_LAYER(_CustomNormal4thTex, _CustomNormal4thTex_ST, _CustomNormal4thTex_UVMode, _CustomNormal4thTex_ScrollRotate, _CustomNormal4thDistanceFade, _CustomNormal4thStrength, DNKW_SAMPLE_MASK2(_CustomNormal4thMaskTex_ST).b) \
+        if (_CustomNormal3rdEnabled > 0.5 && _CustomNormal3rdStrength != 0.0) DNKW_NORMAL_LAYER(_CustomNormal3rdTex, _CustomNormal3rdTex_ST, _CustomNormal3rdTex_UVMode, _CustomNormal3rdTex_ScrollRotate, _CustomNormal3rdDistanceFade, _CustomNormal3rdStrength, DNKW_SAMPLE_MASK(_CustomNormal3rdMaskTex_ST).b) \
+        if (_CustomNormal4thEnabled > 0.5 && _CustomNormal4thStrength != 0.0) DNKW_NORMAL_LAYER(_CustomNormal4thTex, _CustomNormal4thTex_ST, _CustomNormal4thTex_UVMode, _CustomNormal4thTex_ScrollRotate, _CustomNormal4thDistanceFade, _CustomNormal4thStrength, DNKW_SAMPLE_MASK2(_CustomNormal4thMaskTex_ST).b) \
         DNKW_REFRESH_NORMAL_DERIVED \
     }
 
@@ -231,8 +232,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 //   enable lighting - how much fd.lightColor tints/limits the highlight (1 = original behavior)
 //   clear coat      - F0 fixed at 0.04 and the base below darkened by the coat's Fresnel
 //   fresnel         - weights the highlight toward grazing angles
+// Strength 0 skips the layer: both the highlight and the clear coat darkening scale with strength.
 #define BEFORE_REFLECTION \
-    if (_CustomRefl2ndEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl2ndApplyFA)) { \
+    if (_CustomRefl2ndEnabled > 0.5 && _CustomRefl2ndStrength != 0.0 && DNKW_Refl2ndPassEnabled(_CustomRefl2ndApplyFA)) { \
         float _s2Mask = DNKW_SAMPLE_MASK(_CustomRefl2ndMaskTex_ST).r; \
         DNKW_APPLY_NOISE(_s2Mask, _CustomRefl2ndNoiseST, _CustomRefl2ndNoiseStrength) \
         DNKW_ApplySpecularLayer(fd, _s2Mask, \
@@ -242,7 +244,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
             _CustomRefl2ndFakeLightBlend, _CustomRefl2ndFakeLightDir.xyz, _CustomRefl2ndEnableLighting, \
             _CustomRefl2ndClearCoat, _CustomRefl2ndFresnelStrength, _CustomRefl2ndFresnelPower); \
     } \
-    if (_CustomRefl3rdEnabled > 0.5 && DNKW_Refl2ndPassEnabled(_CustomRefl3rdApplyFA)) { \
+    if (_CustomRefl3rdEnabled > 0.5 && _CustomRefl3rdStrength != 0.0 && DNKW_Refl2ndPassEnabled(_CustomRefl3rdApplyFA)) { \
         float _s3Mask = DNKW_SAMPLE_MASK2(_CustomRefl3rdMaskTex_ST).r; \
         DNKW_APPLY_NOISE(_s3Mask, _CustomRefl3rdNoiseST, _CustomRefl3rdNoiseStrength) \
         DNKW_ApplySpecularLayer(fd, _s3Mask, \
@@ -269,8 +271,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // Blend modes use lilBlendColor: 0 = Normal, 1 = Add, 2 = Screen, 3 = Multiply.
 // The texture color goes through lilToneCorrection (HSVG, skipped at the neutral value) and can be
 // multiplied by the main color.
+// Strength 0 or color alpha 0 skips it: every blend mode is lerp(dst, x, alpha), so nothing would change.
 #define BEFORE_RIMLIGHT \
-    if (_CustomMatcapEnabled > 0.5) { \
+    if (_CustomMatcapEnabled > 0.5 && _CustomMatcapAlpha != 0.0 && _CustomMatcapColor.a != 0.0) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
         float3 _wmR   = DNKW_RotateYaw(reflect(-fd.V, _wmN), _CustomMatcapWorldRotation); \
         float2 _wmUV  = DNKW_MatcapUV(mul(fd.cameraMatrix, _wmN), _wmR, saturate(_CustomMatcapWorldFixed)); \
@@ -298,8 +301,9 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // Enable lighting tints the rim by fd.lightColor like lilToon's _RimEnableLighting (default 1, so the rim
 // darkens with the world instead of glowing); Multiply (rim shade) is left untouched.
 // lilToon's Meta pass also expands this hook (twice); DNKW_PASS_META keeps the rim out of lightmap baking.
+// Strength 0 or color alpha 0 skips the layer (the blend amount would be 0).
 #define BEFORE_EMISSION_1ST \
-    if (DNKW_PASS_META == 0 && _CustomRim2ndEnabled > 0.5) { \
+    if (DNKW_PASS_META == 0 && _CustomRim2ndEnabled > 0.5 && _CustomRim2ndStrength != 0.0 && _CustomRim2ndColor.a != 0.0) { \
         float3 _r2N     = normalize(lerp(fd.origN, fd.N, _CustomRim2ndNormalStrength)); \
         float  _r2Val   = pow(saturate(1.0 - saturate(dot(_r2N, fd.V))), _CustomRim2ndPower); \
         float  _r2Half  = _CustomRim2ndBlur * 0.5; \
@@ -315,7 +319,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         if (_CustomRim2ndBlendMode < 2.5) _r2Color = lerp(_r2Color, _r2Color * fd.lightColor, _CustomRim2ndEnableLighting); \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _r2Color, _r2Amt, _CustomRim2ndBlendMode); \
     } \
-    if (DNKW_PASS_META == 0 && _CustomRim3rdEnabled > 0.5) { \
+    if (DNKW_PASS_META == 0 && _CustomRim3rdEnabled > 0.5 && _CustomRim3rdStrength != 0.0 && _CustomRim3rdColor.a != 0.0) { \
         float3 _r3N     = normalize(lerp(fd.origN, fd.N, _CustomRim3rdNormalStrength)); \
         float  _r3Val   = pow(saturate(1.0 - saturate(dot(_r3N, fd.V))), _CustomRim3rdPower); \
         float  _r3Half  = _CustomRim3rdBlur * 0.5; \
