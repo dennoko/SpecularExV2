@@ -25,8 +25,9 @@ namespace Dennokoworks.SpecularExV2
     //     the slot references differ from the last check.
     //   * Imported material containers (.mat, .asset, models) that depend on a SpecularExV2 shader: every
     //     material inside is checked. Others are skipped without loading them.
-    //   * Imported or deleted source textures and generated masks: saved materials that depend on them,
-    //     and tracked materials that referenced them when last checked.
+    //   * Imported or deleted source textures and generated masks: saved materials that depend on them
+    //     (found through the dependency index), and tracked materials that referenced them when last
+    //     checked.
     //   * The VRChat avatar build hook calls EnsureAll directly (SpecularExPackedMaskBuildHook).
     //
     // Tracking: every material the watcher checks is remembered with the asset paths its slots
@@ -35,6 +36,12 @@ namespace Dennokoworks.SpecularExV2
     // cannot: scene-embedded ones, script-created clones and unsaved edits of .mat files. The pending
     // queue and the tracking survive domain reloads through SessionState; if they are lost, the next
     // batch checks every material instead (full check).
+    //
+    // Dependency index: Unity cannot list the assets that use a texture, so the saved SpecularExV2
+    // material files are indexed by their direct dependencies. It is built by the first texture event
+    // (one project-wide dependency scan, as every event cost before), then updated from container
+    // imports, deletions and moves. A deleted file is no longer anyone's dependency, so it can only be
+    // looked up in an index that existed before the deletion; otherwise the batch is a full check.
     [InitializeOnLoad]
     public static class SpecularExPackedMaskWatcher
     {
@@ -42,6 +49,7 @@ namespace Dennokoworks.SpecularExV2
         static readonly HashSet<string> _containerPaths = NewPathSet();
         static readonly HashSet<string> _texturePaths = NewPathSet();
         static readonly HashSet<string> _deletedPaths = NewPathSet(); // source textures and generated masks
+        static readonly HashSet<string> _deletedContainers = NewPathSet();
         static bool _scanScenes;
         static bool _scheduled;
 
@@ -61,6 +69,12 @@ namespace Dennokoworks.SpecularExV2
         }
 
         static readonly Dictionary<int, Tracked> _tracked = new Dictionary<int, Tracked>();
+
+        // Dependency index (see above): SpecularExV2 container path -> its direct dependencies, and the
+        // reverse. null until built.
+        static Dictionary<string, string[]> _containerDeps;
+        static Dictionary<string, HashSet<string>> _depContainers;
+        static bool IndexBuilt => _containerDeps != null;
 
         // .mat files just saved by EnsureAll, with the material's slots at that moment. The reimport the
         // save causes is skipped once if the material still matches; anything else (another save, an
@@ -90,6 +104,7 @@ namespace Dennokoworks.SpecularExV2
         static readonly ProfilerMarker ProcessMarker = new ProfilerMarker("SpecularExV2.Watcher.Process");
         static readonly ProfilerMarker SceneMarker = new ProfilerMarker("SpecularExV2.Watcher.CollectScene");
         static readonly ProfilerMarker AffectedMarker = new ProfilerMarker("SpecularExV2.Watcher.CollectAffected");
+        static readonly ProfilerMarker IndexMarker = new ProfilerMarker("SpecularExV2.Watcher.BuildIndex");
 
         // Debug timing log: one line per processed batch. Off by default; toggled from the menu.
         const string DebugTimingPref = "SpecularExV2.DebugTiming";
@@ -209,39 +224,63 @@ namespace Dennokoworks.SpecularExV2
             int textures = _texturePaths.Count, deleted = _deletedPaths.Count;
             string fullCheck = _fullCheckReason;
             _fullCheckReason = null;
-            long collectMs = 0;
+            if (fullCheck == null && _deletedPaths.Count > 0 && !IndexBuilt)
+                fullCheck = "a file was deleted before the dependency index was built";
+            long collectMs = 0, indexMs = -1;
             int ownSaves = 0;
 
             var targets = new List<Material>(_materials);
             _materials.Clear();
 
-            // Affected materials are looked up before anything is re-tracked: after a deletion, the
-            // paths recorded at the last check are the only record of who used the file.
+            // Affected materials are looked up before the index and the tracking are updated: after a
+            // deletion, the state recorded before this batch is the only record of who used the file.
             using (AffectedMarker.Auto())
             {
                 if (fullCheck != null)
                 {
-                    CollectAllAssetMaterials(targets);
+                    var t0 = System.Diagnostics.Stopwatch.StartNew();
+                    RebuildIndex(targets, showProgress: false);
+                    indexMs = t0.ElapsedMilliseconds;
                     CollectTrackedMaterials(targets, null);
                     _scanScenes = true;
                 }
                 else if (_texturePaths.Count > 0 || _deletedPaths.Count > 0)
                 {
+                    // Only imports can reach this unbuilt: current dependencies already include them.
+                    if (!IndexBuilt)
+                    {
+                        var t0 = System.Diagnostics.Stopwatch.StartNew();
+                        RebuildIndex(null, showProgress: false);
+                        indexMs = t0.ElapsedMilliseconds;
+                    }
                     var changed = NewPathSet();
                     changed.UnionWith(_texturePaths);
                     changed.UnionWith(_deletedPaths);
-                    CollectAffectedAssetMaterials(targets, changed, _deletedPaths.Count > 0);
+                    foreach (var path in IndexedContainers(changed))
+                        targets.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(path));
                     CollectTrackedMaterials(targets, changed);
                 }
             }
             _texturePaths.Clear();
             _deletedPaths.Clear();
 
+            if (IndexBuilt)
+                foreach (var path in _deletedContainers) RemoveIndexEntry(path);
+            _deletedContainers.Clear();
+
             // A full project import reports every model and .asset here; loading them all is what
             // made first imports slow, so only files that reference a SpecularExV2 shader are loaded.
+            // The index is updated for every one, including our own saves.
             foreach (var path in _containerPaths)
             {
-                if (!SpecularExPackedMaskStore.UsesSpecularExShader(path)) { _selfSaved.Remove(path); continue; }
+                var deps = AssetDatabase.GetDependencies(path, false);
+                bool uses = SpecularExPackedMaskStore.UsesSpecularExShader(deps);
+                if (IndexBuilt)
+                {
+                    if (uses) SetIndexEntry(path, deps);
+                    else RemoveIndexEntry(path);
+                }
+                if (!uses) { _selfSaved.Remove(path); continue; }
                 var materials = SpecularExPackedMaskStore.LoadMaterialsAtPath(path);
                 if (IsOwnSave(path, materials)) { ownSaves++; continue; }
                 targets.AddRange(materials);
@@ -277,6 +316,7 @@ namespace Dennokoworks.SpecularExV2
                 var st = SpecularExPackedMaskStore.LastStats;
                 Debug.Log($"[SpecularExV2] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
                           (fullCheck != null ? $"FULL CHECK ({fullCheck}) | " : "") +
+                          (indexMs >= 0 ? $"index built in {indexMs} ms ({_containerDeps.Count} containers) | " : "") +
                           $"requested {requested}, containers {containers} (own saves {ownSaves}), textures {textures}, deleted {deleted}, scene scan {scanned} | " +
                           $"targets {targets.Count}, examined {st.materials}, written {st.written}, reimported {st.reimported}, assigned {st.assigned}, tracked {_tracked.Count}");
             }
@@ -303,27 +343,93 @@ namespace Dennokoworks.SpecularExV2
                     if (SpecularExMaskPacker.HasPackedSlot(m)) targets.Add(m);
         }
 
-        // Saved SpecularExV2 materials that use one of the changed textures. A deleted path no longer shows
-        // up as a dependency (neither a source nor a generated mask), so after a deletion every material
-        // using a SpecularExV2 shader is re-checked instead; EnsureAll is a no-op for the unaffected ones.
-        static void CollectAffectedAssetMaterials(List<Material> targets, HashSet<string> changed, bool anyDeleted)
+        // ------------------------------------------------------------------------------------------
+        //  Dependency index
+        // ------------------------------------------------------------------------------------------
+
+        // Scans every material file of the project and replaces the index. load: receives every saved
+        // SpecularExV2 material (null = do not load). With showProgress the scan can be cancelled;
+        // it then returns false and keeps the previous index.
+        public static bool RebuildIndex(List<Material> load, bool showProgress)
         {
-            foreach (var path in SpecularExPackedMaskStore.FindMaterialContainerPaths())
+            using var _ = IndexMarker.Auto();
+            var containerDeps = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
+            var loaded = new List<Material>();
+            var paths = SpecularExPackedMaskStore.FindMaterialContainerPaths();
+            try
             {
-                var deps = AssetDatabase.GetDependencies(path, false);
-                if (!SpecularExPackedMaskStore.UsesSpecularExShader(deps)) continue;
-                bool hit = anyDeleted;
-                for (int i = 0; !hit && i < deps.Length; i++) hit = changed.Contains(deps[i]);
-                if (hit) targets.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(path));
+                for (int i = 0; i < paths.Count; i++)
+                {
+                    if (showProgress && EditorUtility.DisplayCancelableProgressBar("SpecularExV2", paths[i], (float)i / paths.Count))
+                        return false;
+                    var deps = AssetDatabase.GetDependencies(paths[i], false);
+                    if (!SpecularExPackedMaskStore.UsesSpecularExShader(deps)) continue;
+                    containerDeps[paths[i]] = deps;
+                    if (load != null) loaded.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(paths[i]));
+                }
+            }
+            finally
+            {
+                if (showProgress) EditorUtility.ClearProgressBar();
+            }
+
+            _containerDeps = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
+            _depContainers = new Dictionary<string, HashSet<string>>(System.StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in containerDeps) SetIndexEntry(kv.Key, kv.Value);
+            load?.AddRange(loaded);
+            return true;
+        }
+
+        static void SetIndexEntry(string container, string[] deps)
+        {
+            RemoveIndexEntry(container);
+            _containerDeps[container] = deps;
+            foreach (var dep in deps)
+            {
+                if (!_depContainers.TryGetValue(dep, out var set))
+                    _depContainers[dep] = set = NewPathSet();
+                set.Add(container);
             }
         }
 
-        // Every saved SpecularExV2 material of the project.
-        static void CollectAllAssetMaterials(List<Material> targets)
+        static void RemoveIndexEntry(string container)
         {
-            foreach (var path in SpecularExPackedMaskStore.FindMaterialContainerPaths())
-                if (SpecularExPackedMaskStore.UsesSpecularExShader(path))
-                    targets.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(path));
+            if (!_containerDeps.TryGetValue(container, out var deps)) return;
+            _containerDeps.Remove(container);
+            foreach (var dep in deps)
+            {
+                if (!_depContainers.TryGetValue(dep, out var set)) continue;
+                set.Remove(container);
+                if (set.Count == 0) _depContainers.Remove(dep);
+            }
+        }
+
+        static HashSet<string> IndexedContainers(HashSet<string> deps)
+        {
+            var result = NewPathSet();
+            foreach (var dep in deps)
+                if (_depContainers.TryGetValue(dep, out var set)) result.UnionWith(set);
+            return result;
+        }
+
+        // A moved container or dependency keeps its relations under the new path.
+        static void MoveIndexPath(string from, string to)
+        {
+            if (!IndexBuilt) return;
+            if (_containerDeps.TryGetValue(from, out var deps))
+            {
+                RemoveIndexEntry(from);
+                SetIndexEntry(to, deps);
+            }
+            if (_depContainers.TryGetValue(from, out var containers))
+            {
+                foreach (var c in new List<string>(containers))
+                {
+                    var d = (string[])_containerDeps[c].Clone();
+                    ReplacePath(d, from, to);
+                    SetIndexEntry(c, d);
+                }
+            }
         }
 
         // ------------------------------------------------------------------------------------------
@@ -403,7 +509,17 @@ namespace Dennokoworks.SpecularExV2
             public string[] containers;
             public string[] textures;
             public string[] deleted;
+            public string[] deletedContainers;
             public SavedTracked[] tracked;
+            public bool hasIndex;
+            public SavedContainer[] index;
+        }
+
+        [System.Serializable]
+        class SavedContainer
+        {
+            public string path;
+            public string[] deps;
         }
 
         [System.Serializable]
@@ -438,9 +554,25 @@ namespace Dennokoworks.SpecularExV2
                 containers = new List<string>(_containerPaths).ToArray(),
                 textures = new List<string>(_texturePaths).ToArray(),
                 deleted = new List<string>(_deletedPaths).ToArray(),
+                deletedContainers = new List<string>(_deletedContainers).ToArray(),
                 tracked = tracked.ToArray(),
             };
+            if (IndexBuilt)
+            {
+                var index = new List<SavedContainer>();
+                foreach (var kv in _containerDeps) index.Add(new SavedContainer { path = kv.Key, deps = kv.Value });
+                state.hasIndex = true;
+                state.index = index.ToArray();
+            }
             string json = JsonUtility.ToJson(state);
+            // Too large: drop the index first (it is rebuilt on demand; a deletion then falls back to
+            // a full check), then everything (the next batch is a full check).
+            if (json.Length > MaxStateLength && state.hasIndex)
+            {
+                state.hasIndex = false;
+                state.index = null;
+                json = JsonUtility.ToJson(state);
+            }
             if (json.Length > MaxStateLength)
                 json = JsonUtility.ToJson(new SavedState { version = StateVersion, overflow = true });
             SessionState.SetString(StateKey, json);
@@ -470,6 +602,14 @@ namespace Dennokoworks.SpecularExV2
             if (state.containers != null) _containerPaths.UnionWith(state.containers);
             if (state.textures != null) _texturePaths.UnionWith(state.textures);
             if (state.deleted != null) _deletedPaths.UnionWith(state.deleted);
+            if (state.deletedContainers != null) _deletedContainers.UnionWith(state.deletedContainers);
+            if (state.hasIndex && state.index != null)
+            {
+                _containerDeps = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
+                _depContainers = new Dictionary<string, HashSet<string>>(System.StringComparer.OrdinalIgnoreCase);
+                foreach (var c in state.index)
+                    if (!string.IsNullOrEmpty(c.path)) SetIndexEntry(c.path, c.deps ?? new string[0]);
+            }
         }
 
         static void ApplyRestoredState()
@@ -570,11 +710,18 @@ namespace Dennokoworks.SpecularExV2
                     {
                         SpecularExPackedMaskStore.InvalidateImportSettings(movedFrom[i]);
                         MoveTrackedPath(movedFrom[i], moved[i]);
+                        MoveIndexPath(movedFrom[i], moved[i]);
                     }
                 }
                 foreach (var path in deleted)
                 {
                     SpecularExPackedMaskStore.InvalidateImportSettings(path);
+                    // Removed from the index only after the affected lookup (Process).
+                    if (MaterialContainerExtensions.Contains(Path.GetExtension(path)))
+                    {
+                        _deletedContainers.Add(path);
+                        queued = true;
+                    }
                     if (SpecularExPackedMaskStore.IsGeneratedPath(path)
                         || TextureExtensions.Contains(Path.GetExtension(path)))
                     {

@@ -535,20 +535,12 @@ namespace Dennokoworks.SpecularExV2
             return result;
         }
 
+        // Also rebuilds the watcher's dependency index from the same scan, and trusts no cached check.
         [MenuItem("Window/SpecularExV2/Packed Masks/Update All Materials")]
         static void UpdateAllMaterials()
         {
             var materials = new List<Material>();
-            var paths = FindMaterialContainerPaths();
-            try
-            {
-                for (int i = 0; i < paths.Count; i++)
-                {
-                    if (EditorUtility.DisplayCancelableProgressBar("SpecularExV2", paths[i], (float)i / paths.Count)) return;
-                    if (UsesSpecularExShader(paths[i])) materials.AddRange(LoadMaterialsAtPath(paths[i]));
-                }
-            }
-            finally { EditorUtility.ClearProgressBar(); }
+            if (!SpecularExPackedMaskWatcher.RebuildIndex(materials, showProgress: true)) return;
 
             bool ok = EnsureAll(materials, persist: true);
             Debug.Log($"[SpecularExV2] Checked the packed masks of {materials.Count} material(s)" +
