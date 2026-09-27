@@ -43,9 +43,9 @@ namespace Dennokoworks.SpecularExV2
         //   rebake:  regenerate the files even if they exist (manual repair).
         //   useCache: skip re-checking what this editor session already verified: import settings of
         //            generated files, and materials whose last check fully succeeded and whose slot
-        //            references did not change since (see Verified). Only the watcher passes true;
-        //            builds, manual repair and menu commands always verify everything. Ignored when
-        //            rebake is set.
+        //            references did not change since (see Verified). Only the watcher passes true
+        //            (its repair commands after invalidating the materials they check); builds and the
+        //            project-wide menu command always verify everything. Ignored when rebake is set.
         // Returns false if any material could not be brought up to date; the reason is logged and the
         // material keeps its previous packed texture.
         struct MaterialPackPlan
@@ -207,11 +207,8 @@ namespace Dennokoworks.SpecularExV2
             {
                 foreach (var m in changedMaterials)
                 {
-                    if (!CanSave(m)) continue;
-                    // The save reimports the .mat; tell the watcher it is ours so it is not re-checked.
-                    SpecularExPackedMaskWatcher.NoteSelfSave(m);
-                    try { AssetDatabase.SaveAssetIfDirty(m); }
-                    catch { SpecularExPackedMaskWatcher.ForgetSelfSave(m); throw; }
+                    // The save reimports the .mat; the watcher sees unchanged slot references and skips it.
+                    if (CanSave(m)) AssetDatabase.SaveAssetIfDirty(m);
                 }
             }
 
@@ -228,8 +225,9 @@ namespace Dennokoworks.SpecularExV2
         // ------------------------------------------------------------------------------------------
         // Material instance ID -> slot snapshot after its last fully successful watcher check. Equal
         // references give the same result unless a referenced texture was reimported or deleted; the
-        // watcher invalidates those materials (index and tracking lookups) before checking them.
-        // Instance IDs are not trusted across domain reloads: the dictionary starts empty.
+        // watcher invalidates those materials (tracking lookup) before checking them, and forgets the
+        // materials it stops tracking. Instance IDs are not trusted across domain reloads: the
+        // dictionary starts empty.
         static readonly Dictionary<int, int[]> _verified = new Dictionary<int, int[]>();
 
         public static void InvalidateVerified(Material m)
@@ -237,12 +235,7 @@ namespace Dennokoworks.SpecularExV2
             if (m != null) _verified.Remove(m.GetInstanceID());
         }
 
-        // Forgets every cached check (verified materials and import settings).
-        public static void InvalidateAllCaches()
-        {
-            _verified.Clear();
-            _verifiedImportSettings.Clear();
-        }
+        public static void InvalidateVerified(int instanceId) => _verified.Remove(instanceId);
 
         // ------------------------------------------------------------------------------------------
         //  Build-time stripping of the source slots
@@ -619,12 +612,25 @@ namespace Dennokoworks.SpecularExV2
             return result;
         }
 
-        // Also rebuilds the watcher's dependency index from the same scan, and trusts no cached check.
+        // The only project-wide check: the watcher covers the scenes only. Trusts no cached check.
         [MenuItem("Window/SpecularExV2/Packed Masks/Update All Materials")]
         static void UpdateAllMaterials()
         {
             var materials = new List<Material>();
-            if (!SpecularExPackedMaskWatcher.RebuildIndex(materials, showProgress: true)) return;
+            var paths = FindMaterialContainerPaths();
+            try
+            {
+                for (int i = 0; i < paths.Count; i++)
+                {
+                    if (EditorUtility.DisplayCancelableProgressBar("SpecularExV2", paths[i], (float)i / paths.Count))
+                        return;
+                    if (UsesSpecularExShader(paths[i])) materials.AddRange(LoadMaterialsAtPath(paths[i]));
+                }
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
 
             bool ok = EnsureAll(materials, persist: true);
             Debug.Log($"[SpecularExV2] Checked the packed masks of {materials.Count} material(s)" +

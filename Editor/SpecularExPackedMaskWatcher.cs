@@ -1,6 +1,5 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
-using System.IO;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,99 +11,60 @@ namespace Dennokoworks.SpecularExV2
     // Decides WHEN SpecularExPackedMaskStore.EnsureAll runs. Every trigger only queues work; the queue
     // is processed once per editor update outside of imports, compilation and play-mode transitions.
     // There is no retry or backoff: EnsureAll is idempotent, and a failure is logged and waits for the
-    // next real change (or the manual rebuild button). Triggers are kept narrow anyway, because a
-    // no-op check still costs dependency hashes and file lookups per material.
+    // next real change (or a manual repair).
+    //
+    // Scope: the watcher keeps the materials the user is looking at correct, not the whole project.
+    // It tracks the materials of the renderers in the loaded scenes and the Prefab Stage (inactive ones
+    // included), plus every material it was asked to check (inspector, change events). Anything else
+    // (a .mat that is not in a scene, a clip-only material) is fixed when it enters a scene, is
+    // inspected, is repaired from the menus below, or is built: the VRChat build hook and the NDMF
+    // plugin check every avatar material without any cache. Nothing here scans the project.
     //
     // Triggers:
-    //   * Scene content: after a domain reload, when a scene or Prefab Stage is opened, when objects
-    //     are created (prefab placement, paste) and when a Renderer changes (material swap). All
-    //     renderers count, active or not. This also migrates materials from the old in-memory preview.
-    //   * Inspector: whenever the drawn material's mask slot references differ from what was last
-    //     checked (covers opening, editing, paste, Undo while inspected, switching to SpecularExV2).
-    //   * Material property changes published by the editor (edits from other windows, Undo), when
-    //     the slot references differ from the last check.
-    //   * Imported material containers (.mat, .asset, models) that depend on a SpecularExV2 shader: every
-    //     material inside is checked. Others are skipped without loading them.
-    //   * Imported or deleted source textures and generated masks: saved materials that depend on them
-    //     (found through the dependency index), and tracked materials that referenced them when last
-    //     checked.
-    //   * The VRChat avatar build hook calls EnsureAll directly (SpecularExPackedMaskBuildHook).
+    //   * Scene rescan: after a domain reload, when a scene or Prefab Stage is opened or closed, when
+    //     play mode starts or ends, and when a tracked material was destroyed.
+    //     Materials of active renderers are checked; materials used only by inactive renderers are
+    //     tracked but deferred (they are not drawn) until they are activated, inspected, edited,
+    //     repaired or built.
+    //   * Inspector: whenever the drawn material's slot references differ from the last check.
+    //   * Change events: material slot edits, renderer changes and created objects (when the slot
+    //     references differ from the last check), and activated GameObjects (their deferred materials).
+    //   * Asset changes: an imported or deleted file that a tracked material referenced when last
+    //     checked (source slots, packed slots, or the material's own file). A lookup table, no loading.
     //
-    // Tracking: every material the watcher checks is remembered with the asset paths its slots
-    // (sources and packed) referenced at that time. It is the only record of which materials used a
-    // file once the file is deleted, and the only way to find materials that AssetDatabase searches
-    // cannot: scene-embedded ones, script-created clones and unsaved edits of .mat files. The pending
-    // queue and the tracking survive domain reloads through SessionState; if they are lost, the next
-    // batch checks every material instead (full check).
-    //
-    // Dependency index: Unity cannot list the assets that use a texture, so the saved SpecularExV2
-    // material files are indexed by their direct dependencies. It is built by the first texture event
-    // (one project-wide dependency scan, as every event cost before), then updated from container
-    // imports, deletions and moves. A deleted file is no longer anyone's dependency, so it can only be
-    // looked up in an index that existed before the deletion; otherwise the batch is a full check.
+    // Invariant: the slot state and the store's verified cache only hold tracked materials. A material
+    // that leaves the tracking loses both, so it is fully checked again when it comes back.
     [InitializeOnLoad]
     public static class SpecularExPackedMaskWatcher
     {
         static readonly HashSet<Material> _materials = new HashSet<Material>();
-        static readonly HashSet<string> _containerPaths = NewPathSet();
-        static readonly HashSet<string> _texturePaths = NewPathSet();
-        static readonly HashSet<string> _deletedPaths = NewPathSet(); // source textures and generated masks
-        static readonly HashSet<string> _deletedContainers = NewPathSet();
-        static bool _scanScenes;
+        static readonly HashSet<int> _dirtyInputs = new HashSet<int>();     // a referenced texture changed
+        static readonly HashSet<int> _dirtyContainers = new HashSet<int>(); // the material's own file was imported
+        static bool _rescan;
         static bool _scheduled;
-
-        // Why the next batch must check every material (lost state), or null.
-        static string _fullCheckReason;
 
         static HashSet<string> NewPathSet() => new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
         // Material instance ID -> its slot references (sources and packed) when last queued or checked.
         static readonly Dictionary<int, int[]> _slotState = new Dictionary<int, int[]>();
 
-        // Instance ID -> a checked material and the asset paths its slots referenced then (see Tracking).
+        // Instance ID -> a tracked material and the asset paths it referenced when last tracked: its slot
+        // textures and its own file (null when scene-embedded or in memory).
         class Tracked
         {
             public Material material;
+            public string self;
             public string[] paths;
         }
 
         static readonly Dictionary<int, Tracked> _tracked = new Dictionary<int, Tracked>();
+        static readonly Dictionary<string, HashSet<int>> _byPath = new Dictionary<string, HashSet<int>>(System.StringComparer.OrdinalIgnoreCase);
 
-        // Dependency index (see above): SpecularExV2 container path -> its direct dependencies, and the
-        // reverse. null until built.
-        static Dictionary<string, string[]> _containerDeps;
-        static Dictionary<string, HashSet<string>> _depContainers;
-        static bool IndexBuilt => _containerDeps != null;
-
-        // .mat files just saved by EnsureAll, with the material's slots at that moment. The reimport the
-        // save causes is skipped once if the material still matches; anything else (another save, an
-        // external edit, a late or missing notification) is processed normally.
-        struct SelfSave
-        {
-            public int id;
-            public int[] state;
-            public double expires;
-        }
-
-        const double SelfSaveLifetime = 5; // seconds
-        static readonly Dictionary<string, SelfSave> _selfSaved = new Dictionary<string, SelfSave>(System.StringComparer.OrdinalIgnoreCase);
-
-        static readonly HashSet<string> TextureExtensions = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-        {
-            ".png", ".jpg", ".jpeg", ".tga", ".psd", ".tif", ".tiff", ".bmp", ".gif", ".exr", ".hdr",
-            ".iff", ".pict", ".asset", ".rendertexture",
-        };
-
-        // Files that can hold materials (models embed them as sub-assets).
-        static readonly HashSet<string> MaterialContainerExtensions = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-        {
-            ".mat", ".asset", ".fbx", ".obj", ".blend", ".dae", ".3ds", ".max", ".ma", ".mb",
-        };
+        // Tracked materials used only by inactive renderers and not checked yet.
+        static readonly HashSet<int> _deferred = new HashSet<int>();
 
         static readonly ProfilerMarker ProcessMarker = new ProfilerMarker("SpecularExV2.Watcher.Process");
-        static readonly ProfilerMarker SceneMarker = new ProfilerMarker("SpecularExV2.Watcher.CollectScene");
-        static readonly ProfilerMarker AffectedMarker = new ProfilerMarker("SpecularExV2.Watcher.CollectAffected");
-        static readonly ProfilerMarker IndexMarker = new ProfilerMarker("SpecularExV2.Watcher.BuildIndex");
+        static readonly ProfilerMarker SceneMarker = new ProfilerMarker("SpecularExV2.Watcher.RescanScenes");
 
         // Debug timing log: one line per processed batch. Off by default; toggled from the menu.
         const string DebugTimingPref = "SpecularExV2.DebugTiming";
@@ -123,13 +83,21 @@ namespace Dennokoworks.SpecularExV2
 
         static SpecularExPackedMaskWatcher()
         {
-            LoadState();
-            AssemblyReloadEvents.beforeAssemblyReload += SaveState;
             ObjectChangeEvents.changesPublished += OnChangesPublished;
             EditorSceneManager.sceneOpened += (_, __) => RequestSceneScan();
+            EditorSceneManager.sceneClosed += _ => RequestSceneScan();
             PrefabStage.prefabStageOpened += _ => RequestSceneScan();
-            // Domain reload: covers opening the project and the first load after upgrading from the
-            // in-memory preview, whose textures were never saved.
+            PrefabStage.prefabStageClosing += _ => RequestSceneScan();
+            // Without a domain reload on play mode changes, the scene is recreated with new material
+            // instances (scene-embedded ones) that nothing else reports.
+            EditorApplication.playModeStateChanged += state =>
+            {
+                if (state == PlayModeStateChange.EnteredEditMode || state == PlayModeStateChange.EnteredPlayMode)
+                    RequestSceneScan();
+            };
+            // Domain reload: static state is gone, and the scenes are all the watcher has to rebuild.
+            // Also covers opening the project and the first load after upgrading from the in-memory
+            // preview, whose textures were never saved.
             RequestSceneScan();
         }
 
@@ -152,49 +120,9 @@ namespace Dennokoworks.SpecularExV2
             Request(m);
         }
 
-        public static void NoteSelfSave(Material m)
-        {
-            string path = AssetDatabase.GetAssetPath(m);
-            if (string.IsNullOrEmpty(path)) return;
-            _selfSaved[path] = new SelfSave
-            {
-                id = m.GetInstanceID(),
-                state = SpecularExPackedMaskStore.SlotSnapshot(m),
-                expires = EditorApplication.timeSinceStartup + SelfSaveLifetime,
-            };
-        }
-
-        public static void ForgetSelfSave(Material m)
-        {
-            string path = AssetDatabase.GetAssetPath(m);
-            if (!string.IsNullOrEmpty(path)) _selfSaved.Remove(path);
-        }
-
-        // Whether this container import is the reimport of our own save and the material is still what
-        // was saved. Consumes the registration either way.
-        static bool IsOwnSave(string path, List<Material> materials)
-        {
-            if (!_selfSaved.TryGetValue(path, out var save)) return false;
-            _selfSaved.Remove(path);
-            return EditorApplication.timeSinceStartup <= save.expires
-                   && materials.Count == 1
-                   && materials[0].GetInstanceID() == save.id
-                   && SpecularExPackedMaskStore.SnapshotEquals(save.state, SpecularExPackedMaskStore.SlotSnapshot(materials[0]));
-        }
-
-        static void PurgeExpiredSelfSaves()
-        {
-            if (_selfSaved.Count == 0) return;
-            double now = EditorApplication.timeSinceStartup;
-            var expired = new List<string>();
-            foreach (var kv in _selfSaved)
-                if (now > kv.Value.expires) expired.Add(kv.Key);
-            foreach (var path in expired) _selfSaved.Remove(path);
-        }
-
         static void RequestSceneScan()
         {
-            _scanScenes = true;
+            _rescan = true;
             Schedule();
         }
 
@@ -219,221 +147,153 @@ namespace Dennokoworks.SpecularExV2
 
             using var _ = ProcessMarker.Auto();
             var timer = DebugTiming ? System.Diagnostics.Stopwatch.StartNew() : null;
-            ApplyRestoredState();
-            int requested = _materials.Count, containers = _containerPaths.Count;
-            int textures = _texturePaths.Count, deleted = _deletedPaths.Count;
-            string fullCheck = _fullCheckReason;
-            _fullCheckReason = null;
-            if (fullCheck == null && _deletedPaths.Count > 0 && !IndexBuilt)
-                fullCheck = "a file was deleted before the dependency index was built";
-            long collectMs = 0, indexMs = -1;
-            int ownSaves = 0;
+            int requested = _materials.Count, inputs = _dirtyInputs.Count, containers = _dirtyContainers.Count;
 
             var targets = new List<Material>(_materials);
             _materials.Clear();
-            // Everything from here up to the scene scan is affected by an asset change, so a cached
-            // check of it cannot be trusted.
-            int affectedFrom = targets.Count;
 
-            // Affected materials are looked up before the index and the tracking are updated: after a
-            // deletion, the state recorded before this batch is the only record of who used the file.
-            using (AffectedMarker.Auto())
+            // A changed input invalidates the cached check. The material's own file needs no
+            // invalidation: its slot references are compared anyway (a self-save is a cheap no-op).
+            // Deferred materials stay deferred; they are checked in full when activated.
+            foreach (int id in _dirtyInputs) CollectDirty(id, invalidate: true, targets);
+            foreach (int id in _dirtyContainers) CollectDirty(id, invalidate: false, targets);
+            _dirtyInputs.Clear();
+            _dirtyContainers.Clear();
+
+            bool scanned = _rescan;
+            if (_rescan)
             {
-                if (fullCheck != null)
-                {
-                    SpecularExPackedMaskStore.InvalidateAllCaches();
-                    var t0 = System.Diagnostics.Stopwatch.StartNew();
-                    RebuildIndex(targets, showProgress: false);
-                    indexMs = t0.ElapsedMilliseconds;
-                    CollectTrackedMaterials(targets, null);
-                    _scanScenes = true;
-                }
-                else if (_texturePaths.Count > 0 || _deletedPaths.Count > 0)
-                {
-                    // Only imports can reach this unbuilt: current dependencies already include them.
-                    if (!IndexBuilt)
-                    {
-                        var t0 = System.Diagnostics.Stopwatch.StartNew();
-                        RebuildIndex(null, showProgress: false);
-                        indexMs = t0.ElapsedMilliseconds;
-                    }
-                    var changed = NewPathSet();
-                    changed.UnionWith(_texturePaths);
-                    changed.UnionWith(_deletedPaths);
-                    foreach (var path in IndexedContainers(changed))
-                        targets.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(path));
-                    CollectTrackedMaterials(targets, changed);
-                }
-            }
-            _texturePaths.Clear();
-            _deletedPaths.Clear();
-
-            if (IndexBuilt)
-                foreach (var path in _deletedContainers) RemoveIndexEntry(path);
-            _deletedContainers.Clear();
-
-            // A full project import reports every model and .asset here; loading them all is what
-            // made first imports slow, so only files that reference a SpecularExV2 shader are loaded.
-            // The index is updated for every one, including our own saves.
-            foreach (var path in _containerPaths)
-            {
-                var deps = AssetDatabase.GetDependencies(path, false);
-                bool uses = SpecularExPackedMaskStore.UsesSpecularExShader(deps);
-                if (IndexBuilt)
-                {
-                    if (uses) SetIndexEntry(path, deps);
-                    else RemoveIndexEntry(path);
-                }
-                if (!uses) { _selfSaved.Remove(path); continue; }
-                var materials = SpecularExPackedMaskStore.LoadMaterialsAtPath(path);
-                if (IsOwnSave(path, materials)) { ownSaves++; continue; }
-                targets.AddRange(materials);
-            }
-            _containerPaths.Clear();
-            PurgeExpiredSelfSaves();
-            for (int i = affectedFrom; i < targets.Count; i++) SpecularExPackedMaskStore.InvalidateVerified(targets[i]);
-
-            // Scene content is re-registered (tracked) on every scan, even when its check is cheap.
-            bool scanned = _scanScenes;
-            if (_scanScenes)
-            {
-                _scanScenes = false;
+                _rescan = false;
                 using (SceneMarker.Auto())
-                    CollectSceneMaterials(targets);
+                    RescanScenes(targets);
             }
-            if (timer != null) collectMs = timer.ElapsedMilliseconds;
+            long collectMs = timer?.ElapsedMilliseconds ?? 0;
 
-            // Verified materials are skipped cheaply; a full check has cleared that cache above.
             try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true, useCache: true); }
             catch (System.Exception e) { Debug.LogException(e); }
-
-            // The check may have assigned packed textures; record the result so the change events
-            // caused by our own SetTexture do not queue the same materials again.
-            foreach (var m in targets)
-            {
-                if (!SpecularExMaskPacker.HasPackedSlot(m)) continue;
-                _slotState[m.GetInstanceID()] = SpecularExPackedMaskStore.SlotSnapshot(m);
-                Track(m);
-            }
+            NoteChecked(targets);
 
             if (timer != null)
             {
                 var st = SpecularExPackedMaskStore.LastStats;
                 Debug.Log($"[SpecularExV2] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
-                          (fullCheck != null ? $"FULL CHECK ({fullCheck}) | " : "") +
-                          (indexMs >= 0 ? $"index built in {indexMs} ms ({_containerDeps.Count} containers) | " : "") +
-                          $"requested {requested}, containers {containers} (own saves {ownSaves}), textures {textures}, deleted {deleted}, scene scan {scanned} | " +
-                          $"targets {targets.Count}, examined {st.materials} (cached {st.cached}), written {st.written}, reimported {st.reimported}, assigned {st.assigned}, tracked {_tracked.Count}");
+                          $"requested {requested}, changed inputs {inputs}, changed files {containers}, scene scan {scanned} | " +
+                          $"targets {targets.Count}, examined {st.materials} (cached {st.cached}), written {st.written}, reimported {st.reimported}, assigned {st.assigned} | " +
+                          $"tracked {_tracked.Count}, deferred {_deferred.Count}");
             }
         }
 
-        static void CollectSceneMaterials(List<Material> targets)
+        static void CollectDirty(int id, bool invalidate, List<Material> targets)
         {
+            if (!_tracked.TryGetValue(id, out var t)) return;
+            var m = t.material;
+            if (!SpecularExMaskPacker.HasPackedSlot(m))
+            {
+                // Destroyed (e.g. a model reimport recreated its materials) or no longer SpecularExV2:
+                // the renderers may reference a replacement now.
+                Untrack(id);
+                _rescan = true;
+                return;
+            }
+            if (_deferred.Contains(id)) return;
+            if (invalidate) SpecularExPackedMaskStore.InvalidateVerified(m);
+            targets.Add(m);
+        }
+
+        // The check may have assigned packed textures; record the result so the change events caused
+        // by our own SetTexture do not queue the same materials again.
+        static void NoteChecked(IEnumerable<Material> materials)
+        {
+            foreach (var m in materials)
+            {
+                if (!SpecularExMaskPacker.HasPackedSlot(m)) continue;
+                int id = m.GetInstanceID();
+                _slotState[id] = SpecularExPackedMaskStore.SlotSnapshot(m);
+                _deferred.Remove(id);
+                Track(m);
+            }
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  Scene content
+        // ------------------------------------------------------------------------------------------
+
+        // Rebuilds the tracking from the loaded scenes. Materials of active renderers are added to
+        // `targets` (cheap when verified); inactive-only ones are deferred unless already checked.
+        // Tracked materials no longer in a scene are dropped, except this batch's targets.
+        static void RescanScenes(List<Material> targets)
+        {
+            var found = new Dictionary<Material, bool>(); // material -> used by an active renderer
             for (int s = 0; s < SceneManager.sceneCount; s++)
             {
                 var scene = SceneManager.GetSceneAt(s);
                 if (!scene.isLoaded) continue;
                 foreach (var root in scene.GetRootGameObjects())
-                    CollectRendererMaterials(root, targets);
+                    CollectRendererMaterials(root, found);
             }
             var stage = PrefabStageUtility.GetCurrentPrefabStage();
             if (stage != null && stage.prefabContentsRoot != null)
-                CollectRendererMaterials(stage.prefabContentsRoot, targets);
+                CollectRendererMaterials(stage.prefabContentsRoot, found);
+
+            var keep = new HashSet<int>();
+            foreach (var m in targets)
+                if (m != null) keep.Add(m.GetInstanceID());
+            foreach (var m in found.Keys) keep.Add(m.GetInstanceID());
+            var gone = new List<int>();
+            foreach (int id in _tracked.Keys)
+                if (!keep.Contains(id)) gone.Add(id);
+            foreach (int id in gone) Untrack(id);
+
+            foreach (var kv in found)
+            {
+                if (kv.Value) targets.Add(kv.Key);
+                else Defer(kv.Key);
+            }
         }
 
-        static void CollectRendererMaterials(GameObject root, List<Material> targets)
+        static void CollectRendererMaterials(GameObject root, Dictionary<Material, bool> found)
         {
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                bool active = r.enabled && r.gameObject.activeInHierarchy;
                 foreach (var m in r.sharedMaterials)
-                    if (SpecularExMaskPacker.HasPackedSlot(m)) targets.Add(m);
-        }
-
-        // ------------------------------------------------------------------------------------------
-        //  Dependency index
-        // ------------------------------------------------------------------------------------------
-
-        // Scans every material file of the project and replaces the index. load: receives every saved
-        // SpecularExV2 material (null = do not load). With showProgress the scan can be cancelled;
-        // it then returns false and keeps the previous index.
-        public static bool RebuildIndex(List<Material> load, bool showProgress)
-        {
-            using var _ = IndexMarker.Auto();
-            var containerDeps = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
-            var loaded = new List<Material>();
-            var paths = SpecularExPackedMaskStore.FindMaterialContainerPaths();
-            try
-            {
-                for (int i = 0; i < paths.Count; i++)
                 {
-                    if (showProgress && EditorUtility.DisplayCancelableProgressBar("SpecularExV2", paths[i], (float)i / paths.Count))
-                        return false;
-                    var deps = AssetDatabase.GetDependencies(paths[i], false);
-                    if (!SpecularExPackedMaskStore.UsesSpecularExShader(deps)) continue;
-                    containerDeps[paths[i]] = deps;
-                    if (load != null) loaded.AddRange(SpecularExPackedMaskStore.LoadMaterialsAtPath(paths[i]));
+                    if (!SpecularExMaskPacker.HasPackedSlot(m)) continue;
+                    found[m] = active || (found.TryGetValue(m, out bool a) && a);
                 }
             }
-            finally
-            {
-                if (showProgress) EditorUtility.ClearProgressBar();
-            }
-
-            _containerDeps = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
-            _depContainers = new Dictionary<string, HashSet<string>>(System.StringComparer.OrdinalIgnoreCase);
-            foreach (var kv in containerDeps) SetIndexEntry(kv.Key, kv.Value);
-            load?.AddRange(loaded);
-            return true;
         }
 
-        static void SetIndexEntry(string container, string[] deps)
+        // Tracks a material of an inactive renderer without checking it. One already checked (slot
+        // state recorded) stays checked: asset changes keep it up to date like any other.
+        static void Defer(Material m)
         {
-            RemoveIndexEntry(container);
-            _containerDeps[container] = deps;
-            foreach (var dep in deps)
-            {
-                if (!_depContainers.TryGetValue(dep, out var set))
-                    _depContainers[dep] = set = NewPathSet();
-                set.Add(container);
-            }
+            int id = m.GetInstanceID();
+            if (_slotState.ContainsKey(id) || _materials.Contains(m)) return;
+            Track(m);
+            _deferred.Add(id);
         }
 
-        static void RemoveIndexEntry(string container)
+        static void RequestRenderers(GameObject root)
         {
-            if (!_containerDeps.TryGetValue(container, out var deps)) return;
-            _containerDeps.Remove(container);
-            foreach (var dep in deps)
+            var found = new Dictionary<Material, bool>();
+            CollectRendererMaterials(root, found);
+            foreach (var kv in found)
             {
-                if (!_depContainers.TryGetValue(dep, out var set)) continue;
-                set.Remove(container);
-                if (set.Count == 0) _depContainers.Remove(dep);
+                if (kv.Value) RequestIfSlotsChanged(kv.Key);
+                else Defer(kv.Key);
             }
         }
 
-        static HashSet<string> IndexedContainers(HashSet<string> deps)
+        // An activated object: check the deferred materials its active renderers now draw.
+        static void RequestActivated(GameObject go)
         {
-            var result = NewPathSet();
-            foreach (var dep in deps)
-                if (_depContainers.TryGetValue(dep, out var set)) result.UnionWith(set);
-            return result;
-        }
-
-        // A moved container or dependency keeps its relations under the new path.
-        static void MoveIndexPath(string from, string to)
-        {
-            if (!IndexBuilt) return;
-            if (_containerDeps.TryGetValue(from, out var deps))
+            if (_deferred.Count == 0 || !go.activeInHierarchy) return;
+            foreach (var r in go.GetComponentsInChildren<Renderer>(false))
             {
-                RemoveIndexEntry(from);
-                SetIndexEntry(to, deps);
-            }
-            if (_depContainers.TryGetValue(from, out var containers))
-            {
-                foreach (var c in new List<string>(containers))
-                {
-                    var d = (string[])_containerDeps[c].Clone();
-                    ReplacePath(d, from, to);
-                    SetIndexEntry(c, d);
-                }
+                if (!r.enabled) continue;
+                foreach (var m in r.sharedMaterials)
+                    if (m != null && _deferred.Remove(m.GetInstanceID())) Request(m);
             }
         }
 
@@ -443,10 +303,21 @@ namespace Dennokoworks.SpecularExV2
 
         static void Track(Material m)
         {
+            int id = m.GetInstanceID();
             var paths = new List<string>();
             foreach (var prop in SpecularExMaskPacker.AllSourceProps) AddSlotPath(m, prop, paths);
             foreach (var pack in SpecularExMaskPacker.Packs) AddSlotPath(m, pack.prop, paths);
-            _tracked[m.GetInstanceID()] = new Tracked { material = m, paths = paths.ToArray() };
+            string self = AssetDatabase.GetAssetPath(m);
+            if (string.IsNullOrEmpty(self)) self = null;
+            else paths.Add(self);
+
+            RemovePaths(id);
+            _tracked[id] = new Tracked { material = m, self = self, paths = paths.ToArray() };
+            foreach (var p in paths)
+            {
+                if (!_byPath.TryGetValue(p, out var ids)) _byPath[p] = ids = new HashSet<int>();
+                ids.Add(id);
+            }
         }
 
         static void AddSlotPath(Material m, string prop, List<string> paths)
@@ -456,193 +327,169 @@ namespace Dennokoworks.SpecularExV2
             if (!string.IsNullOrEmpty(path)) paths.Add(path);
         }
 
-        // Tracked materials that referenced one of `paths` when last checked (every one if null). Drops
-        // destroyed materials and those no longer using a SpecularExV2 shader.
-        static void CollectTrackedMaterials(List<Material> targets, HashSet<string> paths)
+        static void Untrack(int id)
         {
-            var dead = new List<int>();
-            foreach (var kv in _tracked)
-            {
-                var m = kv.Value.material;
-                if (!SpecularExMaskPacker.HasPackedSlot(m)) { dead.Add(kv.Key); continue; }
-                if (paths == null) { targets.Add(m); continue; }
-                foreach (var p in kv.Value.paths)
-                {
-                    if (!paths.Contains(p)) continue;
-                    targets.Add(m);
-                    break;
-                }
-            }
-            foreach (var id in dead) _tracked.Remove(id);
+            RemovePaths(id);
+            _tracked.Remove(id);
+            _slotState.Remove(id);
+            _deferred.Remove(id);
+            SpecularExPackedMaskStore.InvalidateVerified(id);
         }
 
-        // Generated files are not queued (they are derived data), but a changed one invalidates the
-        // cached checks of the materials that referenced it.
+        static void RemovePaths(int id)
+        {
+            if (!_tracked.TryGetValue(id, out var t)) return;
+            foreach (var p in t.paths)
+            {
+                if (!_byPath.TryGetValue(p, out var ids)) continue;
+                ids.Remove(id);
+                if (ids.Count == 0) _byPath.Remove(p);
+            }
+        }
+
+        // Queues the tracked materials that referenced `path`. inputsOnly: ignore materials whose own
+        // file it is.
+        static bool MarkDirty(string path, bool inputsOnly = false)
+        {
+            if (!_byPath.TryGetValue(path, out var ids)) return false;
+            bool queued = false;
+            foreach (int id in ids)
+            {
+                bool own = string.Equals(_tracked[id].self, path, System.StringComparison.OrdinalIgnoreCase);
+                if (own && inputsOnly) continue;
+                (own ? _dirtyContainers : _dirtyInputs).Add(id);
+                queued = true;
+            }
+            return queued;
+        }
+
+        // Generated files are not queued on import (every write of ours imports one), but a changed
+        // one invalidates the cached checks of the materials that referenced it.
         static void InvalidateVerifiedUsing(string path)
         {
-            foreach (var t in _tracked.Values)
-                foreach (var p in t.paths)
-                {
-                    if (!string.Equals(p, path, System.StringComparison.OrdinalIgnoreCase)) continue;
-                    SpecularExPackedMaskStore.InvalidateVerified(t.material);
-                    break;
-                }
+            if (!_byPath.TryGetValue(path, out var ids)) return;
+            foreach (int id in ids) SpecularExPackedMaskStore.InvalidateVerified(id);
         }
 
         static void MoveTrackedPath(string from, string to)
         {
-            foreach (var t in _tracked.Values) ReplacePath(t.paths, from, to);
-            if (_restored?.tracked != null)
-                foreach (var t in _restored.tracked) ReplacePath(t.paths, from, to);
-        }
-
-        static void ReplacePath(string[] paths, string from, string to)
-        {
-            if (paths == null) return;
-            for (int i = 0; i < paths.Length; i++)
-                if (string.Equals(paths[i], from, System.StringComparison.OrdinalIgnoreCase)) paths[i] = to;
+            if (!_byPath.TryGetValue(from, out var ids)) return;
+            _byPath.Remove(from);
+            if (!_byPath.TryGetValue(to, out var target)) _byPath[to] = target = new HashSet<int>();
+            target.UnionWith(ids);
+            foreach (int id in ids)
+            {
+                var t = _tracked[id];
+                if (string.Equals(t.self, from, System.StringComparison.OrdinalIgnoreCase)) t.self = to;
+                for (int i = 0; i < t.paths.Length; i++)
+                    if (string.Equals(t.paths[i], from, System.StringComparison.OrdinalIgnoreCase)) t.paths[i] = to;
+            }
         }
 
         // ------------------------------------------------------------------------------------------
-        //  Domain reload
+        //  Manual repair
         // ------------------------------------------------------------------------------------------
-        // Static fields are lost on every domain reload (script compile, entering play mode). A script
-        // imported in the same refresh as a texture reloads the domain before Process runs, so the
-        // pending queue and the tracking are saved right before the reload and restored afterwards.
-        // The saved value is erased once read, so it is never applied twice.
 
-        const string SessionKey = "SpecularExV2.Watcher.Session";
-        const string StateKey = "SpecularExV2.Watcher.State";
-        const int StateVersion = 1;
-        const int MaxStateLength = 1 << 20; // characters
-
-        [System.Serializable]
-        class SavedState
+        // Checks `materials` now, trusting no cached result for them; they are tracked afterwards.
+        //   rebake: regenerate the files even if they exist (slow: every file is recompressed).
+        public static bool Repair(ICollection<Material> materials, bool rebake)
         {
-            public int version;
-            public bool overflow;
-            public string fullCheckReason;
-            public bool scanScenes;
-            public int[] materials;
-            public string[] containers;
-            public string[] textures;
-            public string[] deleted;
-            public string[] deletedContainers;
-            public SavedTracked[] tracked;
-            public bool hasIndex;
-            public SavedContainer[] index;
-        }
-
-        [System.Serializable]
-        class SavedContainer
-        {
-            public string path;
-            public string[] deps;
-        }
-
-        [System.Serializable]
-        class SavedTracked
-        {
-            public int id;
-            public string[] paths;
-        }
-
-        // Instance IDs are resolved by the first Process, not in the static constructor, because
-        // resolving can load assets.
-        static SavedState _restored;
-
-        static void SaveState()
-        {
-            var materials = new List<int>();
-            foreach (var m in _materials)
-                if (m != null) materials.Add(m.GetInstanceID());
-            var tracked = new List<SavedTracked>();
-            foreach (var kv in _tracked)
-                if (kv.Value.material != null) tracked.Add(new SavedTracked { id = kv.Key, paths = kv.Value.paths });
-            if (_restored?.tracked != null)
-                foreach (var t in _restored.tracked)
-                    if (!_tracked.ContainsKey(t.id)) tracked.Add(t);
-
-            var state = new SavedState
+            bool ok;
+            if (rebake)
             {
-                version = StateVersion,
-                fullCheckReason = _fullCheckReason,
-                scanScenes = _scanScenes,
-                materials = materials.ToArray(),
-                containers = new List<string>(_containerPaths).ToArray(),
-                textures = new List<string>(_texturePaths).ToArray(),
-                deleted = new List<string>(_deletedPaths).ToArray(),
-                deletedContainers = new List<string>(_deletedContainers).ToArray(),
-                tracked = tracked.ToArray(),
-            };
-            if (IndexBuilt)
-            {
-                var index = new List<SavedContainer>();
-                foreach (var kv in _containerDeps) index.Add(new SavedContainer { path = kv.Key, deps = kv.Value });
-                state.hasIndex = true;
-                state.index = index.ToArray();
+                ok = SpecularExPackedMaskStore.EnsureAll(materials, persist: true, rebake: true);
             }
-            string json = JsonUtility.ToJson(state);
-            // Too large: drop the index first (it is rebuilt on demand; a deletion then falls back to
-            // a full check), then everything (the next batch is a full check).
-            if (json.Length > MaxStateLength && state.hasIndex)
+            else
             {
-                state.hasIndex = false;
-                state.index = null;
-                json = JsonUtility.ToJson(state);
+                // Import settings stay cached: every import, deletion or move of a generated file
+                // invalidates them. The verified results of these materials do not.
+                foreach (var m in materials) SpecularExPackedMaskStore.InvalidateVerified(m);
+                ok = SpecularExPackedMaskStore.EnsureAll(materials, persist: true, useCache: true);
             }
-            if (json.Length > MaxStateLength)
-                json = JsonUtility.ToJson(new SavedState { version = StateVersion, overflow = true });
-            SessionState.SetString(StateKey, json);
+            NoteChecked(materials);
+            return ok;
         }
 
-        static void LoadState()
+        static void LogRepair(int count, bool ok, bool rebake)
+            => Debug.Log($"[SpecularExV2] {(rebake ? "Rebaked" : "Repaired")} the packed masks of {count} material(s)" +
+                         (ok ? "." : "; some failed, see the errors above."));
+
+        [MenuItem("Window/SpecularExV2/Packed Masks/Repair Scene Materials")]
+        static void RepairScene()
         {
-            // SessionState is cleared when the editor quits, so on a fresh start nothing was pending.
-            bool reload = SessionState.GetBool(SessionKey, false);
-            SessionState.SetBool(SessionKey, true);
-            string json = SessionState.GetString(StateKey, "");
-            SessionState.EraseString(StateKey);
-            if (!reload) return;
-
-            SavedState state = null;
-            try { if (json.Length > 0) state = JsonUtility.FromJson<SavedState>(json); }
-            catch (System.Exception e) { Debug.LogException(e); }
-            if (state == null || state.version != StateVersion || state.overflow)
+            var found = new Dictionary<Material, bool>();
+            for (int s = 0; s < SceneManager.sceneCount; s++)
             {
-                _fullCheckReason = "watcher state was not preserved across the domain reload";
-                return;
+                var scene = SceneManager.GetSceneAt(s);
+                if (!scene.isLoaded) continue;
+                foreach (var root in scene.GetRootGameObjects())
+                    CollectRendererMaterials(root, found);
             }
+            var stage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (stage != null && stage.prefabContentsRoot != null)
+                CollectRendererMaterials(stage.prefabContentsRoot, found);
+            var materials = new List<Material>(found.Keys);
+            LogRepair(materials.Count, Repair(materials, rebake: false), rebake: false);
+        }
 
-            _restored = state;
-            _fullCheckReason = state.fullCheckReason;
-            _scanScenes |= state.scanScenes;
-            if (state.containers != null) _containerPaths.UnionWith(state.containers);
-            if (state.textures != null) _texturePaths.UnionWith(state.textures);
-            if (state.deleted != null) _deletedPaths.UnionWith(state.deleted);
-            if (state.deletedContainers != null) _deletedContainers.UnionWith(state.deletedContainers);
-            if (state.hasIndex && state.index != null)
+        // Hierarchy context menu. Invoked once per selected object; only the call for the active one
+        // runs, and it handles the whole selection.
+        [MenuItem("GameObject/SpecularExV2/Repair Packed Masks", false, 49)]
+        static void RepairSelectedObjects(MenuCommand command)
+        {
+            if (command.context != null && command.context != Selection.activeGameObject) return;
+            var materials = new HashSet<Material>();
+            foreach (var go in Selection.gameObjects) CollectObjectMaterials(go, materials);
+            var list = new List<Material>(materials);
+            LogRepair(list.Count, Repair(list, rebake: false), rebake: false);
+        }
+
+        [MenuItem("GameObject/SpecularExV2/Repair Packed Masks", true)]
+        static bool RepairSelectedObjectsValidate() => Selection.gameObjects.Length > 0;
+
+        // Renderers (inactive included) and the clips of their Animators, so materials swapped in by
+        // animation are repaired too. VRChat's playable layers are covered by the build hook.
+        static void CollectObjectMaterials(GameObject root, HashSet<Material> materials)
+        {
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+                foreach (var m in r.sharedMaterials)
+                    if (SpecularExMaskPacker.HasPackedSlot(m)) materials.Add(m);
+
+            foreach (var animator in root.GetComponentsInChildren<Animator>(true))
             {
-                _containerDeps = new Dictionary<string, string[]>(System.StringComparer.OrdinalIgnoreCase);
-                _depContainers = new Dictionary<string, HashSet<string>>(System.StringComparer.OrdinalIgnoreCase);
-                foreach (var c in state.index)
-                    if (!string.IsNullOrEmpty(c.path)) SetIndexEntry(c.path, c.deps ?? new string[0]);
+                var controller = animator.runtimeAnimatorController;
+                if (controller == null) continue;
+                foreach (var clip in controller.animationClips)
+                {
+                    if (clip == null) continue;
+                    foreach (var binding in AnimationUtility.GetObjectReferenceCurveBindings(clip))
+                        foreach (var key in AnimationUtility.GetObjectReferenceCurve(clip, binding))
+                            if (key.value is Material m && SpecularExMaskPacker.HasPackedSlot(m)) materials.Add(m);
+                }
             }
         }
 
-        static void ApplyRestoredState()
+        [MenuItem("Assets/SpecularExV2/Rebake Packed Masks")]
+        static void RebakeSelectedAssets()
         {
-            var state = _restored;
-            if (state == null) return;
-            _restored = null;
-            if (state.materials != null)
-                foreach (int id in state.materials)
-                    if (EditorUtility.InstanceIDToObject(id) is Material m) _materials.Add(m);
-            if (state.tracked != null)
-                foreach (var t in state.tracked)
-                    if (!_tracked.ContainsKey(t.id) && EditorUtility.InstanceIDToObject(t.id) is Material m)
-                        _tracked[t.id] = new Tracked { material = m, paths = t.paths ?? new string[0] };
+            var materials = SelectedMaterialAssets();
+            LogRepair(materials.Count, Repair(materials, rebake: true), rebake: true);
         }
+
+        [MenuItem("Assets/SpecularExV2/Rebake Packed Masks", true)]
+        static bool RebakeSelectedAssetsValidate() => SelectedMaterialAssets().Count > 0;
+
+        static List<Material> SelectedMaterialAssets()
+        {
+            var result = new List<Material>();
+            foreach (var m in Selection.GetFiltered<Material>(SelectionMode.Assets))
+                if (SpecularExMaskPacker.HasPackedSlot(m)) result.Add(m);
+            return result;
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  Events
+        // ------------------------------------------------------------------------------------------
 
         static void OnChangesPublished(ref ObjectChangeEventStream stream)
         {
@@ -668,23 +515,24 @@ namespace Dennokoworks.SpecularExV2
                     }
                     case ObjectChangeKind.ChangeGameObjectOrComponentProperties:
                     {
-                        // Only Renderers matter (material swaps); ignore transforms etc. to stay cheap.
-                        // BlendShape drags publish one event per frame, so unchanged materials are skipped.
+                        // Renderers: material swaps and enabling. GameObjects: activation. Everything else
+                        // (transforms etc.) is ignored to stay cheap. BlendShape drags publish one event
+                        // per frame, so unchanged materials are skipped.
                         stream.GetChangeGameObjectOrComponentPropertiesEvent(i, out var data);
-                        if (EditorUtility.InstanceIDToObject(data.instanceId) is Renderer r)
+                        var o = EditorUtility.InstanceIDToObject(data.instanceId);
+                        if (o is Renderer r)
+                        {
                             foreach (var m in r.sharedMaterials)
                                 RequestIfSlotsChanged(m);
+                        }
+                        else if (o is GameObject go)
+                        {
+                            RequestActivated(go);
+                        }
                         break;
                     }
                 }
             }
-        }
-
-        static void RequestRenderers(GameObject root)
-        {
-            var list = new List<Material>();
-            CollectRendererMaterials(root, list);
-            foreach (var m in list) RequestIfSlotsChanged(m);
         }
 
         // Only the static OnPostprocessAllAssets callback. Do NOT add per-type callbacks such as
@@ -706,49 +554,25 @@ namespace Dennokoworks.SpecularExV2
                         InvalidateVerifiedUsing(path);
                         continue;
                     }
-                    string ext = Path.GetExtension(path);
-                    // .asset can be either, so it is checked both ways.
-                    if (MaterialContainerExtensions.Contains(ext))
-                    {
-                        _containerPaths.Add(path);
-                        queued = true;
-                    }
-                    if (TextureExtensions.Contains(ext))
-                    {
-                        _texturePaths.Add(path);
-                        queued = true;
-                    }
+                    queued |= MarkDirty(path);
                 }
                 // Moves keep the GUID and contents, so they do not change any packed mask. They can
-                // still move a generated file or the shaders, which the cached lookups depend on, and
-                // the recorded paths are renamed right away.
+                // still move a generated file (the expected path no longer matches) or the shaders,
+                // which the cached lookups depend on, and the recorded paths are renamed right away.
                 if (deleted.Length > 0 || moved.Length > 0) SpecularExPackedMaskStore.InvalidateShaderFolder();
                 for (int i = 0; i < moved.Length; i++)
                 {
                     SpecularExPackedMaskStore.InvalidateImportSettings(moved[i]);
-                    if (i < movedFrom.Length)
-                    {
-                        SpecularExPackedMaskStore.InvalidateImportSettings(movedFrom[i]);
-                        InvalidateVerifiedUsing(movedFrom[i]);
-                        MoveTrackedPath(movedFrom[i], moved[i]);
-                        MoveIndexPath(movedFrom[i], moved[i]);
-                    }
+                    if (i >= movedFrom.Length) continue;
+                    SpecularExPackedMaskStore.InvalidateImportSettings(movedFrom[i]);
+                    if (SpecularExPackedMaskStore.IsGeneratedPath(movedFrom[i])) queued |= MarkDirty(movedFrom[i]);
+                    MoveTrackedPath(movedFrom[i], moved[i]);
                 }
                 foreach (var path in deleted)
                 {
                     SpecularExPackedMaskStore.InvalidateImportSettings(path);
-                    // Removed from the index only after the affected lookup (Process).
-                    if (MaterialContainerExtensions.Contains(Path.GetExtension(path)))
-                    {
-                        _deletedContainers.Add(path);
-                        queued = true;
-                    }
-                    if (SpecularExPackedMaskStore.IsGeneratedPath(path)
-                        || TextureExtensions.Contains(Path.GetExtension(path)))
-                    {
-                        _deletedPaths.Add(path);
-                        queued = true;
-                    }
+                    // A deleted material file destroys the material; nothing to check.
+                    queued |= MarkDirty(path, inputsOnly: true);
                 }
                 if (queued) Schedule();
             }
