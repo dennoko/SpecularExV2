@@ -309,7 +309,7 @@ lilToon のフラグメントシェーダーパイプラインに対して、以
 - **ForwardAdd**:
   - 追加スペキュラー（Specular 2nd）が追加光源の方向・光色・減衰を反映して動作。
   - Normal Map 3rd / 4th が追加ライトの陰影計算に寄与。
-  - MatCap は「追加ライトにも反映」(`_CustomMatcapApplyFA`, 既定 1) がオンのときのみ動作。リムライトは lilToon が ForwardAdd でフックを展開しないため無効。
+  - MatCap は ForwardAdd では描画しない（custom_insert.hlsl で `BEFORE_RIMLIGHT` を空に再定義し、追加ライトの全バリアントからコードを除外）。`_CustomMatcapApplyFA` は既存マテリアル互換のためプロパティのみ残す。リムライトは lilToon が ForwardAdd でフックを展開しないため無効。
 - **ShadowCaster / Meta**: 不要な計算を自動バイパスし、描画パフォーマンスを維持。
 
 ---

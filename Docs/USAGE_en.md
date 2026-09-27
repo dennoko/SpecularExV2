@@ -95,11 +95,8 @@ Standard MatCaps adhere to camera view space, causing reflection patterns to rem
 - **Purpose**: Controls the multiplication ratio of the base texture color into the MatCap reflection.
 - **Effect**: Higher values blend the underlying surface texture color more strongly, improving integration with colored surfaces.
 
-#### Apply Additional Lights
-- **Purpose**: Controls whether additional point or spot lights (ForwardAdd pass) contribute to MatCap calculation.
-- **Effect**:
-  - **Enabled (ON)**: MatCap brightness increases based on proximity to local lights.
-  - **Disabled (OFF)**: Calculated using only ambient and main directional lighting, avoiding overexposure near dense lighting.
+#### Additional Lights
+- The MatCap is an environment reflection and is drawn only in the main light pass (ForwardBase). Additional point or spot lights (ForwardAdd pass) do not draw it, so it never stacks up per light.
 
 ---
 

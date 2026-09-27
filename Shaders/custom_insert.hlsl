@@ -35,6 +35,14 @@
 // compile ("invalid subscript 'tangentOS'").
 #define LIL_REQUIRE_APP_TANGENT
 
+// The World MatCap is an environment reflection, so it is drawn by ForwardBase only. Emptying its hook in
+// ForwardAdd (instead of a uniform branch) keeps it out of every additional-light variant, which the
+// compiler would otherwise have to build (5 light types x fog x instancing, per outline pass too).
+#if defined(LIL_PASS_FORWARDADD)
+    #undef  BEFORE_RIMLIGHT
+    #define BEFORE_RIMLIGHT
+#endif
+
 //----------------------------------------------------------------------------------------------------------------------
 // Common
 //----------------------------------------------------------------------------------------------------------------------
@@ -90,8 +98,8 @@ float3 DNKW_ToneCorrection(float3 c, float4 hsvg)
 
 #define DNKW_CLEARCOAT_F0     0.04
 
-// lilToon's reflection is gated by _ApplySpecularFA in the additive pass; Specular 2nd/3rd and the World
-// MatCap mirror that with their own *ApplyFA.
+// lilToon's reflection is gated by _ApplySpecularFA in the additive pass; Specular 2nd/3rd mirror that with
+// their own *ApplyFA.
 bool DNKW_Refl2ndPassEnabled(float applyFA)
 {
     #if defined(LIL_PASS_FORWARDADD)
@@ -237,17 +245,11 @@ float2 DNKW_MatcapUV(float3 dView, float3 dWorld, float t)
     return d.xy * 0.5 + 0.5;
 }
 
-// MatCap lighting, mirroring lilToon's lilGetMatCap (_MatCapEnableLighting).
-//   ForwardBase: lerp toward the lit color by enableLighting.
-//   ForwardAdd : the pass output is ADDED per light, so the matcap is scaled by the additional light
-//                color (Normal/Add/Screen); Multiply (mode 3) is left as-is, same as lilToon.
-float3 DNKW_MatcapLighting(float3 mc, float3 lightColor, float enableLighting, float blendMode)
+// MatCap lighting, mirroring lilToon's lilGetMatCap (_MatCapEnableLighting): lerp toward the lit color by
+// enableLighting. ForwardBase only (the hook is emptied in ForwardAdd, see the top of this file).
+float3 DNKW_MatcapLighting(float3 mc, float3 lightColor, float enableLighting)
 {
-    #if !defined(LIL_PASS_FORWARDADD)
-        return lerp(mc, mc * lightColor, enableLighting);
-    #else
-        return (blendMode < 2.5) ? mc * lightColor * enableLighting : mc;
-    #endif
+    return lerp(mc, mc * lightColor, enableLighting);
 }
 
 #endif // !LIL_PASS_SHADOWCASTER && !LIL_PASS_META

@@ -5,7 +5,8 @@
 // Hook order in lilToon's forward pass (lil_pass_forward_normal.hlsl):
 //   [Normal 1st/2nd] -> BEFORE_AUDIOLINK    : (1) Normal Map 3rd
 //   [Main / Shadow]  -> BEFORE_REFLECTION   : (2) Specular 2nd        (ForwardBase + ForwardAdd)
-//   [Reflection/MatCap] -> BEFORE_RIMLIGHT  : (3) World MatCap        (ForwardBase + ForwardAdd)
+//   [Reflection/MatCap] -> BEFORE_RIMLIGHT  : (3) World MatCap        (ForwardBase only; emptied in
+//                                                                      ForwardAdd by custom_insert.hlsl)
 //   [Rim light]      -> BEFORE_EMISSION_1ST : (4) Rim Light 2nd       (ForwardBase only; lilToon does not
 //                                                                      expand this hook in ForwardAdd)
 // ShadowCaster / DepthOnly passes never expand these hooks; the Meta pass (which expands
@@ -284,9 +285,10 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // The texture color goes through lilToneCorrection (HSVG, skipped at the neutral value) and can be
 // multiplied by the main color.
 // Strength 0 or color alpha 0 skips it: every blend mode is lerp(dst, x, alpha), so nothing would change.
-// ApplyFA 0 leaves it out of ForwardAdd (one pass per additional light), like the specular layers.
+// Not drawn in ForwardAdd (the hook is emptied there); _CustomMatcapApplyFA is kept only so existing
+// materials keep their value.
 #define BEFORE_RIMLIGHT \
-    if (_CustomMatcapEnabled > 0.5 && _CustomMatcapAlpha != 0.0 && _CustomMatcapColor.a != 0.0 && DNKW_Refl2ndPassEnabled(_CustomMatcapApplyFA)) { \
+    if (_CustomMatcapEnabled > 0.5 && _CustomMatcapAlpha != 0.0 && _CustomMatcapColor.a != 0.0) { \
         float3 _wmN   = normalize(lerp(fd.origN, fd.matcapN, _CustomMatcapNormalStrength)); \
         float  _wmT   = saturate(_CustomMatcapWorldFixed); \
         float3 _wmDV  = 0.0; \
@@ -297,7 +299,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         float4 _wmTex = LIL_SAMPLE_2D_LOD(_CustomMatcapFrontTex, lil_sampler_linear_clamp, _wmUV, _CustomMatcapBlur); \
         float3 _wmRGB = DNKW_ToneCorrection(_wmTex.rgb, _CustomMatcapHSVG); \
         _wmRGB *= _CustomMatcapColor.rgb * lerp(float3(1.0, 1.0, 1.0), fd.albedo, _CustomMatcapMainColorStrength); \
-        float3 _wmCol = DNKW_MatcapLighting(_wmRGB, fd.lightColor, _CustomMatcapEnableLighting, _CustomMatcapBlendMode); \
+        float3 _wmCol = DNKW_MatcapLighting(_wmRGB, fd.lightColor, _CustomMatcapEnableLighting); \
         float  _wmA   = _wmTex.a * _CustomMatcapColor.a * _CustomMatcapAlpha * DNKW_SAMPLE_MASK(_CustomMatcapMaskTex_ST).a; \
         DNKW_APPLY_NOISE(_wmA, _CustomMatcapNoiseST, _CustomMatcapNoiseStrength) \
         _wmA *= lerp(1.0, fd.shadowmix, _CustomMatcapShadowStrength); \

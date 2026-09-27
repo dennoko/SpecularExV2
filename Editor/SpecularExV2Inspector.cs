@@ -838,7 +838,6 @@ namespace Dennokoworks.SpecularExV2
                 Prop(_CustomMatcapEnableLighting,     Loc("label_enable_lighting"));
                 Prop(_CustomMatcapShadowStrength,     Loc("label_shadow_strength"));
                 BoolProp(_CustomMatcapDisableBackface, Loc("label_disable_backface"));
-                BoolProp(_CustomMatcapApplyFA,         Loc("label_matcap_apply_fa"));
                 lilEditorGUI.DrawLine();
                 Prop(_CustomMatcapMaskTex, Loc("label_mask"));
                 DrawNoise(_CustomMatcapNoiseStrength, _CustomMatcapNoiseST);
