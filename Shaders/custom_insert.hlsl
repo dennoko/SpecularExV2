@@ -17,27 +17,23 @@
 #ifndef DNKW_SPEX_CUSTOM_INSERT_INCLUDED
 #define DNKW_SPEX_CUSTOM_INSERT_INCLUDED
 
+#if defined(LIL_PASS_SHADOWCASTER) || defined(LIL_PASS_META)
+
+// ShadowCaster / Meta need none of the extension: no tangent input, no helpers. The shadow caster expands
+// none of our hooks; the Meta pass expands BEFORE_EMISSION_1ST (twice), which would add Rim Light 2nd/3rd to
+// the lightmap bake and references the helpers below, so it is emptied here (hooks expand after this file).
+#undef  BEFORE_EMISSION_1ST
+#define BEFORE_EMISSION_1ST
+
+#else
+
 // Normal Map 3rd composites in tangent space, so the TBN must reach the fragment shader.
 #define LIL_V2F_FORCE_TANGENT
-#define LIL_V2F_FORCE_BITANGENT
 // ...and the vertex input must carry the tangent the v2f copies (lil_common_appdata.hlsl is included by
 // the pass file, after this one). lilToon only adds it when its own features need a tangent
 // (LIL_SHOULD_TANGENT), so without this, variants whose shader settings have no normal-map feature fail to
 // compile ("invalid subscript 'tangentOS'").
 #define LIL_REQUIRE_APP_TANGENT
-
-// Pass flags usable from the hook macros (macros are expanded after this file, so they resolve here).
-// Branching on these constants is folded away by the compiler.
-#if defined(LIL_PASS_FORWARDADD)
-    #define DNKW_PASS_FORWARDADD 1
-#else
-    #define DNKW_PASS_FORWARDADD 0
-#endif
-#if defined(LIL_PASS_META)
-    #define DNKW_PASS_META 1
-#else
-    #define DNKW_PASS_META 0
-#endif
 
 //----------------------------------------------------------------------------------------------------------------------
 // Common
@@ -254,4 +250,5 @@ float3 DNKW_MatcapLighting(float3 mc, float3 lightColor, float enableLighting, f
     #endif
 }
 
+#endif // !LIL_PASS_SHADOWCASTER && !LIL_PASS_META
 #endif // DNKW_SPEX_CUSTOM_INSERT_INCLUDED

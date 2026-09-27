@@ -9,7 +9,7 @@
 //   [Rim light]      -> BEFORE_EMISSION_1ST : (4) Rim Light 2nd       (ForwardBase only; lilToon does not
 //                                                                      expand this hook in ForwardAdd)
 // ShadowCaster / DepthOnly passes never expand these hooks; the Meta pass (which expands
-// BEFORE_EMISSION_1ST) is excluded explicitly via DNKW_PASS_META.
+// BEFORE_EMISSION_1ST) gets it emptied by custom_insert.hlsl.
 //
 // Pass-dependent helpers (DNKW_*) and texture sampling helpers live in custom_insert.hlsl — see there.
 //----------------------------------------------------------------------------------------------------------------------
@@ -317,14 +317,14 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
 // in worlds without a directional light fd.L is lilToon's SH direction.
 // Enable lighting tints the rim by fd.lightColor like lilToon's _RimEnableLighting (default 1, so the rim
 // darkens with the world instead of glowing); Multiply (rim shade) is left untouched.
-// lilToon's Meta pass also expands this hook (twice); DNKW_PASS_META keeps the rim out of lightmap baking.
+// lilToon's Meta pass also expands this hook (twice); custom_insert.hlsl empties it there, keeping the rim
+// out of lightmap baking.
 // Strength 0 or color alpha 0 skips the layer (the blend amount would be 0).
-// The 2nd noise, the 3rd mask and the 3rd noise share packed-2 samples like the specular layers. The block
-// scopes the cache, since the Meta pass expands this hook twice in one function.
+// The 2nd noise, the 3rd mask and the 3rd noise share packed-2 samples like the specular layers.
 #define BEFORE_EMISSION_1ST \
     { \
     DNKW_MaskCache _rPk2 = (DNKW_MaskCache)0; \
-    if (DNKW_PASS_META == 0 && _CustomRim2ndEnabled > 0.5 && _CustomRim2ndStrength != 0.0 && _CustomRim2ndColor.a != 0.0) { \
+    if (_CustomRim2ndEnabled > 0.5 && _CustomRim2ndStrength != 0.0 && _CustomRim2ndColor.a != 0.0) { \
         float3 _r2N     = normalize(lerp(fd.origN, fd.N, _CustomRim2ndNormalStrength)); \
         float  _r2Val   = pow(saturate(1.0 - saturate(dot(_r2N, fd.V))), _CustomRim2ndPower); \
         float  _r2Half  = _CustomRim2ndBlur * 0.5; \
@@ -340,7 +340,7 @@ float3 DNKW_RotateYaw(float3 v, float degrees)
         if (_CustomRim2ndBlendMode < 2.5) _r2Color = lerp(_r2Color, _r2Color * fd.lightColor, _CustomRim2ndEnableLighting); \
         fd.col.rgb = lilBlendColor(fd.col.rgb, _r2Color, _r2Amt, _CustomRim2ndBlendMode); \
     } \
-    if (DNKW_PASS_META == 0 && _CustomRim3rdEnabled > 0.5 && _CustomRim3rdStrength != 0.0 && _CustomRim3rdColor.a != 0.0) { \
+    if (_CustomRim3rdEnabled > 0.5 && _CustomRim3rdStrength != 0.0 && _CustomRim3rdColor.a != 0.0) { \
         float3 _r3N     = normalize(lerp(fd.origN, fd.N, _CustomRim3rdNormalStrength)); \
         float  _r3Val   = pow(saturate(1.0 - saturate(dot(_r3N, fd.V))), _CustomRim3rdPower); \
         float  _r3Half  = _CustomRim3rdBlur * 0.5; \
