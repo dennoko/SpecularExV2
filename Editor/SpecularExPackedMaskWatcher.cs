@@ -31,6 +31,11 @@ namespace Dennokoworks.SpecularExV2
     //     references differ from the last check), and activated GameObjects (their deferred materials).
     //   * Asset changes: an imported or deleted file that a tracked material referenced when last
     //     checked (source slots, packed slots, or the material's own file). A lookup table, no loading.
+    //   * Background bakes: the materials waiting on a file once it is imported.
+    //
+    // The automatic checks bake missing files in the background (EnsureAll background: true), so
+    // setting a mask does not block the editor; the material shows Pending until the file exists.
+    // The manual repair commands bake synchronously.
     //
     // Invariant: the slot state and the store's verified cache only hold tracked materials. A material
     // that leaves the tracking loses both, so it is fully checked again when it comes back.
@@ -90,6 +95,7 @@ namespace Dennokoworks.SpecularExV2
             PrefabStage.prefabStageClosing += _ => RequestSceneScan();
             // Without a domain reload on play mode changes, the scene is recreated with new material
             // instances (scene-embedded ones) that nothing else reports.
+            SpecularExPackedMaskStore.BakesImported += OnBakesImported;
             EditorApplication.playModeStateChanged += state =>
             {
                 if (state == PlayModeStateChange.EnteredEditMode || state == PlayModeStateChange.EnteredPlayMode)
@@ -169,7 +175,7 @@ namespace Dennokoworks.SpecularExV2
             }
             long collectMs = timer?.ElapsedMilliseconds ?? 0;
 
-            try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true, useCache: true); }
+            try { SpecularExPackedMaskStore.EnsureAll(targets, persist: true, useCache: true, background: true); }
             catch (System.Exception e) { Debug.LogException(e); }
             NoteChecked(targets);
 
@@ -178,9 +184,18 @@ namespace Dennokoworks.SpecularExV2
                 var st = SpecularExPackedMaskStore.LastStats;
                 Debug.Log($"[SpecularExV2] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
                           $"requested {requested}, changed inputs {inputs}, changed files {containers}, scene scan {scanned} | " +
-                          $"targets {targets.Count}, examined {st.materials} (cached {st.cached}), written {st.written}, reimported {st.reimported}, assigned {st.assigned} | " +
+                          $"targets {targets.Count}, examined {st.materials} (cached {st.cached}), written {st.written}, background {st.background}, reimported {st.reimported}, assigned {st.assigned} | " +
                           $"tracked {_tracked.Count}, deferred {_deferred.Count}");
             }
+        }
+
+        // Their files exist now; the next check assigns them. They were not recorded as verified.
+        static void OnBakesImported(List<Material> materials)
+        {
+            if (DebugTiming)
+                Debug.Log($"[SpecularExV2] Background bakes: imported in {SpecularExPackedMaskStore.LastBakeImportMs} ms " +
+                          $"for {materials.Count} material(s), {SpecularExPackedMaskStore.PendingBakes} bake(s) still running");
+            foreach (var m in materials) Request(m);
         }
 
         static void CollectDirty(int id, bool invalidate, List<Material> targets)

@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Dennokoworks.SpecularExV2
 {
@@ -24,7 +27,10 @@ namespace Dennokoworks.SpecularExV2
     //     preview and in uploads. The settings are written to the generated files' own importers
     //     (EnsureImportSettings), NOT by an AssetPostprocessor.OnPreprocessTexture: registering a
     //     texture preprocessor changes the import dependency of every texture, so installing or
-    //     updating the extension would reimport all textures of the project.
+    //     updating the extension would reimport all textures of the project. A new file gets its
+    //     .meta from an existing file with the right settings (PrepareMeta), so it is imported once.
+    //   * The watcher's checks bake missing files in the background (StartBake): only the GPU render
+    //     and the final import run on the main thread. Builds and manual repairs bake synchronously.
     public static class SpecularExPackedMaskStore
     {
         public const string Folder = "Assets/dennokoworks/SpecularExV2_Generated/PackedMasks";
@@ -46,6 +52,9 @@ namespace Dennokoworks.SpecularExV2
         //            references did not change since (see Verified). Only the watcher passes true
         //            (its repair commands after invalidating the materials they check); builds and the
         //            project-wide menu command always verify everything. Ignored when rebake is set.
+        //   background: bake missing files without blocking (see StartBake). Those packs keep their
+        //            current texture for now; BakesImported reports the materials once the files exist.
+        //            Only the watcher's automatic checks pass true. Ignored when rebake is set.
         // Returns false if any material could not be brought up to date; the reason is logged and the
         // material keeps its previous packed texture.
         struct MaterialPackPlan
@@ -61,6 +70,7 @@ namespace Dennokoworks.SpecularExV2
             public int materials;  // SpecularExV2 materials examined
             public int cached;     // of those, skipped as verified earlier
             public int written;    // PNG files baked and written
+            public int background; // packs left to background bakes
             public int reimported; // generated files reimported for their import settings
             public int assigned;   // materials whose packed reference changed
         }
@@ -73,14 +83,15 @@ namespace Dennokoworks.SpecularExV2
         static readonly ProfilerMarker AssignMarker = new ProfilerMarker("SpecularExV2.EnsureAll.Assign");
         static readonly ProfilerMarker GetStateMarker = new ProfilerMarker("SpecularExV2.GetState");
 
-        public static bool EnsureAll(IEnumerable<Material> materials, bool persist, bool rebake = false, bool useCache = false)
+        public static bool EnsureAll(IEnumerable<Material> materials, bool persist, bool rebake = false, bool useCache = false,
+                                     bool background = false)
         {
             LastStats = default;
             using (EnsureAllMarker.Auto())
-                return EnsureAllCore(materials, persist, rebake, useCache && !rebake);
+                return EnsureAllCore(materials, persist, rebake, useCache && !rebake, background && !rebake);
         }
 
-        static bool EnsureAllCore(IEnumerable<Material> materials, bool persist, bool rebake, bool useCache)
+        static bool EnsureAllCore(IEnumerable<Material> materials, bool persist, bool rebake, bool useCache, bool background)
         {
             var plans = new List<MaterialPackPlan>();
             var seen = new HashSet<Material>();
@@ -138,6 +149,14 @@ namespace Dennokoworks.SpecularExV2
                         }
 
                         string path = Folder + "/" + key + ".png";
+                        if (background && png == null && !written.Contains(path) && !File.Exists(path)
+                            && StartBake(m, p, path))
+                        {
+                            // Not verified: checked again when BakesImported reports it.
+                            uncacheable.Add(m);
+                            LastStats.background++;
+                            continue;
+                        }
                         if ((rebake || !File.Exists(path)) && written.Add(path))
                         {
                             if (png == null) png = SpecularExMaskPacker.BakePng(m, p);
@@ -148,6 +167,7 @@ namespace Dennokoworks.SpecularExV2
                                 AssetDatabase.StartAssetEditing();
                                 editing = true;
                             }
+                            PrepareMeta(path);
                             File.WriteAllBytes(path, png);
                             AssetDatabase.ImportAsset(path);
                             LastStats.written++;
@@ -236,6 +256,200 @@ namespace Dennokoworks.SpecularExV2
         }
 
         public static void InvalidateVerified(int instanceId) => _verified.Remove(instanceId);
+
+        // ------------------------------------------------------------------------------------------
+        //  Background bakes (watcher only)
+        // ------------------------------------------------------------------------------------------
+        // A missing file is produced in stages so the editor stays responsive:
+        //   1. Main thread, when requested: the pack is rendered on the GPU (RenderPack) and an async
+        //      readback is requested. The inputs are captured here, so later slot edits cannot mix in.
+        //   2. Editor updates: when the readback is done, a worker thread encodes the PNG and writes it
+        //      under Temp/, outside Assets, so no refresh can import a partial file.
+        //   3. Main thread, once no compilation or import is running: the finished files are moved into
+        //      place with their .meta (PrepareMeta) and imported in one batch, and BakesImported
+        //      reports the waiting materials, which the watcher checks again (finding the file now).
+        // One bake per file path: materials needing the same file wait on the same bake. There is no
+        // retry: a failed bake is logged and its materials stay Pending until the next change or a
+        // manual repair. A domain reload drops the bakes; the watcher's rescan requests them again.
+        // A file that appeared meanwhile (a synchronous bake by a repair or build) wins, and the
+        // background result is discarded.
+        class Bake
+        {
+            public string path;
+            public readonly List<Material> waiting = new List<Material>();
+            public RenderTexture rt; // until read back
+            public AsyncGPUReadbackRequest readback;
+            public int polls;
+            public Task<string> encode; // -> the temporary PNG file
+        }
+
+        static readonly Dictionary<string, Bake> _bakes = new Dictionary<string, Bake>(System.StringComparer.OrdinalIgnoreCase);
+        static bool _pumping;
+
+        // Readbacks normally finish within a few editor updates; after this many the editor waits.
+        const int MaxReadbackPolls = 120;
+
+        // Materials whose background bakes were imported, for the watcher to check again.
+        public static event System.Action<List<Material>> BakesImported;
+
+        // Main-thread time of the last batch of stage 3; logged by the watcher with debug timing.
+        public static long LastBakeImportMs { get; private set; }
+
+        public static int PendingBakes => _bakes.Count;
+
+        static string _tempFolder;
+        static string TempFolder => _tempFolder ??= Path.GetFullPath("Temp/SpecularExV2Bakes");
+
+        // Starts (or joins) the background bake of `path` from `m`'s pack. False if it cannot run in
+        // the background; the caller bakes synchronously then.
+        static bool StartBake(Material m, int packIndex, string path)
+        {
+            if (_bakes.TryGetValue(path, out var bake))
+            {
+                if (!bake.waiting.Contains(m)) bake.waiting.Add(m);
+                return true;
+            }
+            if (!SystemInfo.supportsAsyncGPUReadback) return false;
+            var rt = SpecularExMaskPacker.RenderPack(m, packIndex);
+            if (rt == null) return false;
+
+            bake = new Bake { path = path, rt = rt };
+            try
+            {
+                bake.readback = AsyncGPUReadback.Request(rt, 0, TextureFormat.RGBA32);
+            }
+            catch (System.Exception e)
+            {
+                RenderTexture.ReleaseTemporary(rt);
+                Debug.LogWarning($"[SpecularExV2] Background bake unavailable, baking synchronously: {e.Message}");
+                return false;
+            }
+            bake.waiting.Add(m);
+            _bakes.Add(path, bake);
+            if (!_pumping)
+            {
+                _pumping = true;
+                EditorApplication.update += PumpBakes;
+                AssemblyReloadEvents.beforeAssemblyReload += DropBakes;
+            }
+            return true;
+        }
+
+        static void PumpBakes()
+        {
+            List<Bake> finished = null;
+            foreach (var bake in _bakes.Values)
+            {
+                if (bake.rt != null && !ReadBack(bake)) continue;
+                if (bake.encode.IsCompleted) (finished ??= new List<Bake>()).Add(bake);
+            }
+            if (finished == null || EditorApplication.isCompiling || EditorApplication.isUpdating
+                || (EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPlaying))
+                return;
+            ImportBakes(finished);
+        }
+
+        // Stage 2. False while the readback is still running.
+        static bool ReadBack(Bake bake)
+        {
+            if (!bake.readback.done)
+            {
+                bake.readback.Update();
+                if (!bake.readback.done && ++bake.polls < MaxReadbackPolls) return false;
+                if (!bake.readback.done) bake.readback.WaitForCompletion();
+            }
+
+            var rt = bake.rt;
+            int width = rt.width, height = rt.height;
+            byte[] pixels;
+            try
+            {
+                pixels = bake.readback.hasError
+                    ? SpecularExMaskPacker.ReadPixels(rt)
+                    : bake.readback.GetData<byte>().ToArray();
+            }
+            finally
+            {
+                RenderTexture.ReleaseTemporary(rt);
+                bake.rt = null;
+            }
+
+            string temp = Path.Combine(TempFolder, Path.GetFileNameWithoutExtension(bake.path) + "-" + System.Guid.NewGuid().ToString("N") + ".png");
+            bake.encode = Task.Run(() =>
+            {
+                byte[] png = SpecularExMaskPacker.EncodePng(pixels, width, height);
+                Directory.CreateDirectory(Path.GetDirectoryName(temp));
+                File.WriteAllBytes(temp, png);
+                return temp;
+            });
+            return true;
+        }
+
+        // Stage 3.
+        static void ImportBakes(List<Bake> finished)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            var materials = new List<Material>();
+            bool editing = false;
+            try
+            {
+                foreach (var bake in finished)
+                {
+                    _bakes.Remove(bake.path);
+                    try
+                    {
+                        string temp = bake.encode.Result; // rethrows a failure of the worker
+                        if (File.Exists(bake.path))
+                        {
+                            File.Delete(temp);
+                        }
+                        else
+                        {
+                            if (!editing)
+                            {
+                                EnsureFolder();
+                                AssetDatabase.StartAssetEditing();
+                                editing = true;
+                            }
+                            PrepareMeta(bake.path);
+                            File.Move(temp, bake.path);
+                            AssetDatabase.ImportAsset(bake.path);
+                        }
+                    }
+                    catch (System.Exception e)
+                    {
+                        var inner = e is System.AggregateException a ? a.GetBaseException() : e;
+                        Debug.LogError($"[SpecularExV2] Could not bake the packed mask '{bake.path}' in the background: {inner.Message}");
+                        continue;
+                    }
+                    foreach (var m in bake.waiting)
+                        if (m != null && !materials.Contains(m)) materials.Add(m);
+                }
+            }
+            finally
+            {
+                if (editing) AssetDatabase.StopAssetEditing();
+                if (_bakes.Count == 0) StopPumping();
+            }
+            LastBakeImportMs = timer.ElapsedMilliseconds;
+            if (materials.Count > 0) BakesImported?.Invoke(materials);
+        }
+
+        static void DropBakes()
+        {
+            foreach (var bake in _bakes.Values)
+                if (bake.rt != null) RenderTexture.ReleaseTemporary(bake.rt);
+            _bakes.Clear();
+            StopPumping();
+        }
+
+        static void StopPumping()
+        {
+            if (!_pumping) return;
+            _pumping = false;
+            EditorApplication.update -= PumpBakes;
+            AssemblyReloadEvents.beforeAssemblyReload -= DropBakes;
+        }
 
         // ------------------------------------------------------------------------------------------
         //  Build-time stripping of the source slots
@@ -462,7 +676,8 @@ namespace Dennokoworks.SpecularExV2
         }
 
         // Reimports only the files whose importer differs, so it is a no-op once the settings are in
-        // the .meta. A new file is imported once with defaults first and once more here.
+        // the .meta. A new file normally has them from its first import (PrepareMeta); only the first
+        // file of a project is imported once with defaults and once more here.
         //   written:  files written by this call; always checked.
         //   useCache: skip files already verified in this domain.
         // Returns the paths whose settings could not be confirmed (no importer, or still different
@@ -505,6 +720,51 @@ namespace Dennokoworks.SpecularExV2
             }
             foreach (var path in matched) _verifiedImportSettings.Add(path);
             return failed;
+        }
+
+        // .meta text of a generated file whose importer was confirmed to match, with its guid replaced
+        // by GuidPlaceholder: Unity's own serialization of the settings, so nothing here depends on
+        // the .meta format beyond the guid line. Kept for the domain; the settings only change with
+        // this code, which reloads the domain.
+        static string _metaTemplate;
+        const string GuidPlaceholder = "{{SpecularExV2Guid}}";
+        static readonly Regex GuidLine = new Regex(@"^guid: [0-9a-fA-F]{32}[ \t]*(?=\r?$)", RegexOptions.Multiline);
+
+        // Writes the .meta of a generated file about to be created, so that its first import already
+        // uses the final settings; otherwise it is imported with defaults and then again with BC7.
+        // An existing .meta (and so the guid) is kept. Without a template (the first file of the
+        // project) nothing is written. Either way EnsureImportSettings checks every written file.
+        static void PrepareMeta(string path)
+        {
+            string meta = path + ".meta";
+            if (File.Exists(meta)) return;
+            string template = MetaTemplate();
+            if (template == null) return;
+            File.WriteAllText(meta, template.Replace(GuidPlaceholder, GUID.Generate().ToString()));
+        }
+
+        static string MetaTemplate()
+        {
+            if (_metaTemplate != null) return _metaTemplate;
+            var candidates = new List<string>(_verifiedImportSettings);
+            if (candidates.Count == 0 && Directory.Exists(Folder))
+            {
+                foreach (var file in Directory.EnumerateFiles(Folder, "*.png"))
+                {
+                    candidates.Add(file.Replace('\\', '/'));
+                    if (candidates.Count >= 4) break;
+                }
+            }
+            foreach (var path in candidates)
+            {
+                if (!(AssetImporter.GetAtPath(path) is TextureImporter ti) || ApplyImportSettings(ti, apply: false)) continue;
+                string meta = path + ".meta";
+                if (!File.Exists(meta)) continue;
+                string text = File.ReadAllText(meta);
+                if (!GuidLine.IsMatch(text)) continue;
+                return _metaTemplate = GuidLine.Replace(text, "guid: " + GuidPlaceholder, 1);
+            }
+            return null;
         }
 
         // The packed channels are four unrelated linear masks:

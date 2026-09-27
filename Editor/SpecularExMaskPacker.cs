@@ -152,6 +152,23 @@ namespace Dennokoworks.SpecularExV2
         // Bakes mask slots for the specified pack into a linear RGBA32 image and returns it PNG-encoded.
         public static byte[] BakePng(Material m, int packIndex = 0)
         {
+            var rt = RenderPack(m, packIndex);
+            if (rt == null) return null;
+            try
+            {
+                return EncodePng(ReadPixels(rt), rt.width, rt.height);
+            }
+            finally
+            {
+                RenderTexture.ReleaseTemporary(rt);
+            }
+        }
+
+        // Renders the specified pack on the GPU into a temporary linear ARGB32 render texture, which the
+        // caller releases with RenderTexture.ReleaseTemporary. null if there is nothing to pack. Cheap:
+        // no CPU readback; BakePng and the store's background bakes read it back afterwards.
+        public static RenderTexture RenderPack(Material m, int packIndex = 0)
+        {
             if (!NeedsPacking(m, packIndex)) return null;
 
             var shader = Shader.Find(PackerShader);
@@ -189,25 +206,46 @@ namespace Dennokoworks.SpecularExV2
             }
 
             var rt = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            try
+            {
+                Graphics.Blit(null, rt, mat);
+                return rt;
+            }
+            catch
+            {
+                RenderTexture.ReleaseTemporary(rt);
+                throw;
+            }
+            finally
+            {
+                Object.DestroyImmediate(mat);
+            }
+        }
+
+        // Synchronous readback of a RenderPack result as raw RGBA32 rows, in Texture2D order.
+        public static byte[] ReadPixels(RenderTexture rt)
+        {
             var prevActive = RenderTexture.active;
             Texture2D tex = null;
             try
             {
-                Graphics.Blit(null, rt, mat);
                 RenderTexture.active = rt;
-                tex = new Texture2D(width, height, TextureFormat.RGBA32, /*mipChain*/ false, /*linear*/ true);
-                tex.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
-                tex.Apply(false, false);
-                return tex.EncodeToPNG();
+                tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, /*mipChain*/ false, /*linear*/ true);
+                tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0, false);
+                return tex.GetRawTextureData();
             }
             finally
             {
                 RenderTexture.active = prevActive;
-                RenderTexture.ReleaseTemporary(rt);
-                if (mat != null) Object.DestroyImmediate(mat);
                 if (tex != null) Object.DestroyImmediate(tex);
             }
         }
+
+        // PNG-encodes raw linear RGBA32 rows read back from a RenderPack result. Thread-safe: the
+        // store's background bakes call it on a worker thread.
+        public static byte[] EncodePng(byte[] rgba32, int width, int height)
+            => ImageConversion.EncodeArrayToPNG(rgba32, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm,
+                                                (uint)width, (uint)height);
     }
 }
 #endif
