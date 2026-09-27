@@ -146,6 +146,7 @@ namespace Dennokoworks.SpecularExV2
         static bool _foldNoise;
         static bool _foldPacking;
         static readonly List<Material> _packingMats = new List<Material>();
+        static GUIStyle _packingLineStyle;
 
         // Copy/paste buffer
         static readonly Dictionary<string, float>   _clipFloats   = new Dictionary<string, float>();
@@ -386,6 +387,7 @@ namespace Dennokoworks.SpecularExV2
             SyncAllEffective();
 
             DrawVersionBar();
+            DrawPackingStatusLine();
 
             DrawRefl2nd();
             DrawRefl3rd();
@@ -1003,7 +1005,61 @@ namespace Dennokoworks.SpecularExV2
             EditorGUILayout.EndVertical();
         }
 
-        // -- Mask Packing Status --
+        // SpecularExV2 materials among the inspected targets. The list is reused by every OnGUI.
+        List<Material> PackingMaterials()
+        {
+            var mats = _packingMats;
+            mats.Clear();
+            foreach (var t in m_MaterialEditor.targets)
+                if (t is Material mm && SpecularExMaskPacker.HasPackedSlot(mm)) mats.Add(mm);
+            return mats;
+        }
+
+        // -- Packed mask status line (always visible) --
+        // The watcher only keeps the materials in the open scenes up to date, so the state and the
+        // manual repair are kept in sight instead of inside the foldout.
+        void DrawPackingStatusLine()
+        {
+            var mats = PackingMaterials();
+            if (mats.Count == 0) return;
+
+            // The worst state of the selection.
+            var worst = SpecularExPackedMaskStore.PackState.NoMasks;
+            foreach (var m in mats)
+            {
+                var state = SpecularExPackedMaskStore.GetState(m, out _);
+                if (Severity(state) > Severity(worst)) worst = state;
+            }
+
+            if (_packingLineStyle == null)
+                _packingLineStyle = new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
+
+            EditorGUILayout.BeginHorizontal();
+            var prevColor = GUI.contentColor;
+            if (worst == SpecularExPackedMaskStore.PackState.Pending) GUI.contentColor = new Color(1f, 0.72f, 0.3f);
+            GUILayout.Label(Loc("label_packed_masks") + ": " + StateLabel(worst), _packingLineStyle);
+            GUI.contentColor = prevColor;
+            if (GUILayout.Button(new GUIContent(Loc("btn_rebake"), Loc("tooltip_rebake")), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+            {
+                // Deferred out of OnGUI because it imports assets.
+                var selected = mats.ToArray();
+                EditorApplication.delayCall += () => SpecularExPackedMaskWatcher.Repair(selected, rebake: true);
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        static int Severity(SpecularExPackedMaskStore.PackState state)
+        {
+            switch (state)
+            {
+                case SpecularExPackedMaskStore.PackState.Pending:  return 3;
+                case SpecularExPackedMaskStore.PackState.Unsaved:  return 2;
+                case SpecularExPackedMaskStore.PackState.UpToDate: return 1;
+                default:                                            return 0;
+            }
+        }
+
+        // -- Mask Packing Status (details) --
         void DrawPackingStatus()
         {
             _foldPacking = Foldout(Loc("foldout_packing"), _foldPacking);
@@ -1013,11 +1069,7 @@ namespace Dennokoworks.SpecularExV2
             EditorGUILayout.BeginVertical(boxInner);
             EditorGUILayout.HelpBox(Loc("help_packing"), MessageType.None);
 
-            var mats = _packingMats;
-            mats.Clear();
-            foreach (var t in m_MaterialEditor.targets)
-                if (t is Material mm && SpecularExMaskPacker.HasPackedSlot(mm)) mats.Add(mm);
-
+            var mats = PackingMaterials();
             foreach (var m in mats)
             {
                 var state = SpecularExPackedMaskStore.GetState(m, out string fingerprint);
@@ -1031,14 +1083,6 @@ namespace Dennokoworks.SpecularExV2
                     if (m.HasProperty(SpecularExMaskPacker.PackedProp2))
                         EditorGUILayout.ObjectField(Loc("label_packed_texture") + " 2", m.GetTexture(SpecularExMaskPacker.PackedProp2), typeof(Texture), false);
                 }
-            }
-
-            // Manual repair: regenerate the packed mask files of these materials. Deferred out of OnGUI
-            // because it imports assets.
-            if (GUILayout.Button(Loc("btn_rebuild_packed_mask")))
-            {
-                var selected = mats.ToArray(); // the list is reused by the next OnGUI
-                EditorApplication.delayCall += () => SpecularExPackedMaskStore.EnsureAll(selected, persist: true, rebake: true);
             }
 
             EditorGUILayout.EndVertical();
