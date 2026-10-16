@@ -72,7 +72,7 @@
     "pack_unsaved": "Contains unsaved textures (baked at build time)",
     "label_fingerprint": "Fingerprint",
     "label_packed_texture": "Packed Texture",
-    "help_packing": "Masks are packed automatically into RGBA textures (Pack 1: R=Specular 2nd G=Rim 2nd B=Normal 3rd A=MatCap / Pack 2: R=Specular 3rd G=Rim 3rd B=Normal 4th A=Shared Noise) to stay under the 64 texture-parameter limit. Materials in the open scenes are updated automatically. If the masks look wrong, use \"Rebake\" at the top, or right-click an avatar in the Hierarchy and choose \"SpecularExV2 > Repair Packed Masks\".",
+    "help_packing": "Masks are packed automatically into RGBA textures (Pack 1: R=Specular 2nd G=Rim 2nd B=Normal 3rd A=MatCap / Pack 2: R=Specular 3rd G=Rim 3rd B=Normal 4th A=Shared Noise) to stay under the 64 texture-parameter limit. Materials in the open scenes are updated automatically. If the masks look wrong, use \"Rebake\" at the top, or right-click an avatar in the Hierarchy and choose \"DenPlus > Repair Packed Masks\".",
     "help_noise": "A mask shared by the Noise Strength of Specular, MatCap and Rim Light (grayscale / R channel). Tiling and offset are set per feature. Useful for highlights on rough surfaces.",
     "help_noise_missing": "Assign a texture in \"Noise Mask (Shared)\" to enable this.",
     "label_packed_masks": "Packed Masks",

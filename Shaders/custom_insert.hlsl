@@ -1,4 +1,4 @@
-// SpecularExV2 custom_insert.hlsl
+// DenPlus custom_insert.hlsl
 //
 // Injected at lilToon's *LIL_SUBSHADER_INSERT* point, i.e. INSIDE each pass program:
 //   #define LIL_PASS_FORWARDADD / LIL_PASS_META ...   (pass identification)

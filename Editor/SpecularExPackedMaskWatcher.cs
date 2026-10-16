@@ -68,12 +68,12 @@ namespace Dennokoworks.SpecularExV2
         // Tracked materials used only by inactive renderers and not checked yet.
         static readonly HashSet<int> _deferred = new HashSet<int>();
 
-        static readonly ProfilerMarker ProcessMarker = new ProfilerMarker("SpecularExV2.Watcher.Process");
-        static readonly ProfilerMarker SceneMarker = new ProfilerMarker("SpecularExV2.Watcher.RescanScenes");
+        static readonly ProfilerMarker ProcessMarker = new ProfilerMarker("DenPlus.Watcher.Process");
+        static readonly ProfilerMarker SceneMarker = new ProfilerMarker("DenPlus.Watcher.RescanScenes");
 
         // Debug timing log: one line per processed batch. Off by default; toggled from the menu.
-        const string DebugTimingPref = "SpecularExV2.DebugTiming";
-        const string DebugTimingMenu = "Window/SpecularExV2/Packed Masks/Debug Timing Log";
+        const string DebugTimingPref = "DenPlus.DebugTiming";
+        const string DebugTimingMenu = "Window/DenPlus/Packed Masks/Debug Timing Log";
         static bool DebugTiming => EditorPrefs.GetBool(DebugTimingPref, false);
 
         [MenuItem(DebugTimingMenu)]
@@ -182,7 +182,7 @@ namespace Dennokoworks.SpecularExV2
             if (timer != null)
             {
                 var st = SpecularExPackedMaskStore.LastStats;
-                Debug.Log($"[SpecularExV2] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
+                Debug.Log($"[DenPlus] Watcher: {timer.ElapsedMilliseconds} ms (collect {collectMs} ms) | " +
                           $"requested {requested}, changed inputs {inputs}, changed files {containers}, scene scan {scanned} | " +
                           $"targets {targets.Count}, examined {st.materials} (cached {st.cached}), written {st.written}, background {st.background}, reimported {st.reimported}, assigned {st.assigned} | " +
                           $"tracked {_tracked.Count}, deferred {_deferred.Count}");
@@ -193,7 +193,7 @@ namespace Dennokoworks.SpecularExV2
         static void OnBakesImported(List<Material> materials)
         {
             if (DebugTiming)
-                Debug.Log($"[SpecularExV2] Background bakes: imported in {SpecularExPackedMaskStore.LastBakeImportMs} ms " +
+                Debug.Log($"[DenPlus] Background bakes: imported in {SpecularExPackedMaskStore.LastBakeImportMs} ms " +
                           $"for {materials.Count} material(s), {SpecularExPackedMaskStore.PendingBakes} bake(s) still running");
             foreach (var m in materials) Request(m);
         }
@@ -426,10 +426,10 @@ namespace Dennokoworks.SpecularExV2
         }
 
         static void LogRepair(int count, bool ok, bool rebake)
-            => Debug.Log($"[SpecularExV2] {(rebake ? "Rebaked" : "Repaired")} the packed masks of {count} material(s)" +
+            => Debug.Log($"[DenPlus] {(rebake ? "Rebaked" : "Repaired")} the packed masks of {count} material(s)" +
                          (ok ? "." : "; some failed, see the errors above."));
 
-        [MenuItem("Window/SpecularExV2/Packed Masks/Repair Scene Materials")]
+        [MenuItem("Window/DenPlus/Packed Masks/Repair Scene Materials")]
         static void RepairScene()
         {
             var found = new Dictionary<Material, bool>();
@@ -449,7 +449,7 @@ namespace Dennokoworks.SpecularExV2
 
         // Hierarchy context menu. Invoked once per selected object; only the call for the active one
         // runs, and it handles the whole selection.
-        [MenuItem("GameObject/SpecularExV2/Repair Packed Masks", false, 49)]
+        [MenuItem("GameObject/DenPlus/Repair Packed Masks", false, 49)]
         static void RepairSelectedObjects(MenuCommand command)
         {
             if (command.context != null && command.context != Selection.activeGameObject) return;
@@ -459,7 +459,7 @@ namespace Dennokoworks.SpecularExV2
             LogRepair(list.Count, Repair(list, rebake: false), rebake: false);
         }
 
-        [MenuItem("GameObject/SpecularExV2/Repair Packed Masks", true)]
+        [MenuItem("GameObject/DenPlus/Repair Packed Masks", true)]
         static bool RepairSelectedObjectsValidate() => Selection.gameObjects.Length > 0;
 
         // Renderers (inactive included) and the clips of their Animators, so materials swapped in by
@@ -484,14 +484,14 @@ namespace Dennokoworks.SpecularExV2
             }
         }
 
-        [MenuItem("Assets/SpecularExV2/Rebake Packed Masks")]
+        [MenuItem("Assets/DenPlus/Rebake Packed Masks")]
         static void RebakeSelectedAssets()
         {
             var materials = SelectedMaterialAssets();
             LogRepair(materials.Count, Repair(materials, rebake: true), rebake: true);
         }
 
-        [MenuItem("Assets/SpecularExV2/Rebake Packed Masks", true)]
+        [MenuItem("Assets/DenPlus/Rebake Packed Masks", true)]
         static bool RebakeSelectedAssetsValidate() => SelectedMaterialAssets().Count > 0;
 
         static List<Material> SelectedMaterialAssets()

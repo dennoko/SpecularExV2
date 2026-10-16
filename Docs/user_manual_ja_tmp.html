@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>user_manual_ja.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="denplus-%E7%8B%AC%E8%87%AA%E6%A9%9F%E8%83%BD%E3%83%BB%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%83%BC%E4%BD%BF%E3%81%84%E6%96%B9%E3%82%AC%E3%82%A4%E3%83%89">DenPlus 独自機能・パラメーター使い方ガイド</h1>
+<p>本書は、<strong>DenPlus</strong> で追加・拡張された独自機能およびパラメーターの使い方ガイドです。<br>
+lilToon 本体の基本機能（メインカラー、基本的な影設定など）と同じ項目は割愛し、<strong>本シェーダーならではの追加機能・独自設定のみ</strong> を解説しています。</p>
+<p>本書では技術的な詳細を省き、各パラメーターの調整目的と、値の変更による外観の変化について簡潔に説明します。</p>
+<hr>
+<h2 id="%E7%9B%AE%E6%AC%A1">目次</h2>
+<ol>
+<li><a href="#1-%E3%82%B9%E3%83%9A%E3%82%AD%E3%83%A5%E3%83%A9%E3%83%BC-2nd--3rd%E8%BF%BD%E5%8A%A0%E3%83%8F%E3%82%A4%E3%83%A9%E3%82%A4%E3%83%88">スペキュラー 2nd / 3rd（追加ハイライト）</a></li>
+<li><a href="#2-%E3%83%AF%E3%83%BC%E3%83%AB%E3%83%89%E5%9B%BA%E5%AE%9A%E3%83%9E%E3%83%83%E3%83%88%E3%82%AD%E3%83%A3%E3%83%83%E3%83%97%E7%92%B0%E5%A2%83%E5%8F%8D%E5%B0%84">ワールド固定マットキャップ（環境反射）</a></li>
+<li><a href="#3-%E3%83%8E%E3%83%BC%E3%83%9E%E3%83%AB%E3%83%9E%E3%83%83%E3%83%97-3rd--4th%E8%BF%BD%E5%8A%A0%E5%87%B9%E5%87%B8%E3%82%A2%E3%83%8B%E3%83%A1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3">ノーマルマップ 3rd / 4th（追加凹凸・アニメーション）</a></li>
+<li><a href="#4-%E3%83%AA%E3%83%A0%E3%83%A9%E3%82%A4%E3%83%88-2nd--3rd%E8%BF%BD%E5%8A%A0%E8%BC%AA%E9%83%AD%E5%85%89%E3%83%AA%E3%83%A0%E3%82%B7%E3%83%A3%E3%83%89%E3%82%A6">リムライト 2nd / 3rd（追加輪郭光・リムシャドウ）</a></li>
+<li><a href="#5-%E3%83%8E%E3%82%A4%E3%82%BA%E3%83%9E%E3%82%B9%E3%82%AF%E5%85%B1%E9%80%9A%E8%B3%AA%E6%84%9F%E3%83%A9%E3%83%A1%E8%A1%A8%E7%8F%BE">ノイズマスク（共通）（質感・ラメ表現）</a></li>
+<li><a href="#6-%E8%A3%9C%E5%8A%A9%E6%A9%9F%E8%83%BD">補助機能（自動マスクパッキング・設定コピー）</a></li>
+</ol>
+<hr>
+<h2 id="1-%E3%82%B9%E3%83%9A%E3%82%AD%E3%83%A5%E3%83%A9%E3%83%BC-2nd--3rd%E8%BF%BD%E5%8A%A0%E3%83%8F%E3%82%A4%E3%83%A9%E3%82%A4%E3%83%88">1. スペキュラー 2nd / 3rd（追加ハイライト）</h2>
+<p>lilToon 本体の「反射」に加えて、独立したハイライトをさらに <strong>2層（2nd / 3rd）</strong> 重ねて設定できます。</p>
+<blockquote>
+<p><strong>主な用途:</strong></p>
+<ul>
+<li>広範囲の柔らかい光沢と、中心部の鋭いハイライトを多層化する</li>
+<li>自動車塗装やネイル、レジンのような透明コーティング層（クリアコート）を付与する</li>
+<li>ワールド光源の向きに左右されず、髪や瞳に安定したハイライトを配置する</li>
+</ul>
+</blockquote>
+<h3 id="%E7%8B%AC%E8%87%AA%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%83%BC">独自パラメーター</h3>
+<h4 id="%E3%82%AF%E3%83%AA%E3%82%A2%E3%82%B3%E3%83%BC%E3%83%88-clear-coat">クリアコート (<code>Clear Coat</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 塗料のクリア層、樹脂（レジン）、ネイル、光沢ニスのような透明コーティング層を表現します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>有効 (ON)</strong>: 反射率がコーティング層に適した値（0.04）に固定され、斜めから見た際に下地の明るさが自然に減衰します。金属度および反射率のスライダーは非表示になります。</li>
+<li><strong>無効 (OFF)</strong>: 通常のスペキュラー層として機能し、金属度および反射率を個別に設定できます。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%95%E3%83%AC%E3%83%8D%E3%83%AB%E5%BC%B7%E5%BA%A6--%E3%83%95%E3%83%AC%E3%83%8D%E3%83%AB%E3%81%AE%E9%8B%AD%E3%81%95-fresnel-strength--fresnel-power">フレネル強度 / フレネルの鋭さ (<code>Fresnel Strength</code> / <code>Fresnel Power</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 正面向きの面に対し、輪郭部（視線に対して斜めを向いた面）の反射強度を制御します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>フレネル強度</strong>: 値を大きくするほど、斜め方向からの光沢が強くなります（0 の場合は視線角度による変化はありません）。</li>
+<li><strong>フレネルの鋭さ</strong>: 値を大きくするほど、反射の発生領域が外縁部のみに限定されます。値を小さくすると、より広い角度まで滑らかに広がります。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%A9%E3%82%A4%E3%83%88%E3%81%AE%E6%98%8E%E3%82%8B%E3%81%95%E3%82%92%E5%8F%8D%E6%98%A0-enable-lighting">ライトの明るさを反映 (<code>Enable Lighting</code>)</h4>
+<ul>
+<li><strong>目的</strong>: ワールド光源の明るさおよび光色をハイライトに反映する度合いを設定します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>1.0 (初期値)</strong>: 暗所ではハイライトが暗くなり、光源の色味に従います。</li>
+<li><strong>0.0</strong>: 環境の明るさに関わらずハイライトが一定の明るさを維持します（イラスト調の表現や常時発光させたい場合に適します）。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E5%85%89%E6%BA%90%E6%96%B9%E5%90%91%E3%81%AE%E8%A3%9C%E6%AD%A3--%E8%A3%9C%E6%AD%A3%E6%96%B9%E5%90%91-light-direction-override--override-direction">光源方向の補正 / 補正方向 (<code>Light Direction Override</code> / <code>Override Direction</code>)</h4>
+<ul>
+<li><strong>目的</strong>: ワールド光源の向きに関わらず、指定した方向から光が当たっているかのようにハイライトを発生させます。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>光源方向の補正 (0.0 〜 1.0)</strong>: 値を大きくするほど、ワールドの主光源方向から「補正方向」で指定した方向へ光の向きがシフトします（明るさ自体は環境のライティングに従います）。</li>
+<li><strong>補正方向 (カメラ基準: X=右, Y=上, Z=手前)</strong>: 基準となる疑似光源の向きを指定します。例として <code>(0, 0.5, 1)</code> を指定すると、視点の斜め手前から光が当たっている状態となり、カメラアングルに連動した安定したハイライトを維持できます。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%8E%E3%82%A4%E3%82%BA%E5%BC%B7%E5%BA%A6--%E3%82%BF%E3%82%A4%E3%83%AA%E3%83%B3%E3%82%B0--%E3%82%AA%E3%83%95%E3%82%BB%E3%83%83%E3%83%88-noise-strength--tiling--offset">ノイズ強度 / タイリング / オフセット (<code>Noise Strength</code> / <code>Tiling</code> / <code>Offset</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 均一なハイライトに対し、粗面やラメ粒子のような不均一な質感を付与します。</li>
+<li><strong>効果</strong>: <a href="#5-%E3%83%8E%E3%82%A4%E3%82%BA%E3%83%9E%E3%82%B9%E3%82%AF%E5%85%B1%E9%80%9A%E8%B3%AA%E6%84%9F%E3%83%A9%E3%83%A1%E8%A1%A8%E7%8F%BE">ノイズマスク（共通）</a> のテクスチャを参照します。
+<ul>
+<li><strong>ノイズ強度</strong>: 値を大きくするほど、ノイズパターンによる光沢の減衰・分離が強くなります。</li>
+<li><strong>タイリング / オフセット</strong>: ノイズパターンの密度（細かさ）および位置を調整します。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="2-%E3%83%AF%E3%83%BC%E3%83%AB%E3%83%89%E5%9B%BA%E5%AE%9A%E3%83%9E%E3%83%83%E3%83%88%E3%82%AD%E3%83%A3%E3%83%83%E3%83%97%E7%92%B0%E5%A2%83%E5%8F%8D%E5%B0%84">2. ワールド固定マットキャップ（環境反射）</h2>
+<p>一般的な MatCap はカメラ視点に追従するため、アバターの回転時にも反射像が画面に対して静止します。本機能では、<strong>ワールド空間に固定された疑似的な環境反射</strong> を単一テクスチャで実現します。</p>
+<blockquote>
+<p><strong>主な用途:</strong></p>
+<ul>
+<li>金属や装飾品に対し、空間に固定されたリアルな映り込みを付与する</li>
+<li>アバターの動作やカメラ移動に合わせて反射像を自然に移動させる</li>
+<li>テクスチャファイルを再編集することなく、Unity 上で色味やコントラストを調整する</li>
+</ul>
+</blockquote>
+<h3 id="%E7%8B%AC%E8%87%AA%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%83%BC">独自パラメーター</h3>
+<h4 id="%E3%83%AF%E3%83%BC%E3%83%AB%E3%83%89%E5%9B%BA%E5%AE%9A-world-fixing">ワールド固定 (<code>World Fixing</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 反射像の追従基準を「カメラ視点」とするか「ワールド空間」とするかを切り替えます。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>0.0 (視点追従)</strong>: 従来の MatCap と同様にカメラ基準でサンプリングされます。</li>
+<li><strong>1.0 (完全ワールド固定)</strong>: 反射像がワールド座標に固定され、オブジェクトの回転に伴い反射が滑らかに遷移します。</li>
+<li><strong>0.1 〜 0.9 (中間ブレンド)</strong>: 視点追従とワールド固定の参照方向を補間し、視点移動に対して緩やかに追従する挙動になります。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%AF%E3%83%BC%E3%83%AB%E3%83%89%E5%9B%9E%E8%BB%A2-y%E8%BB%B8-world-rotation-yaw">ワールド回転 (Y軸) (<code>World Rotation (Yaw)</code>)</h4>
+<ul>
+<li><strong>目的</strong>: ワールド固定が有効（&gt; 0）の際、反射像の水平方向の向き（方位角）を調整します。</li>
+<li><strong>効果</strong>: 反射像を Y 軸周りに回転させ、ハイライトや景色の映り込む位置を任意の方位に合わせます。</li>
+</ul>
+<h4 id="%E8%89%B2%E7%9B%B8--%E5%BD%A9%E5%BA%A6--%E6%98%8E%E5%BA%A6--%E3%82%AC%E3%83%B3%E3%83%9E-hue--saturation--value--gamma">色相 / 彩度 / 明度 / ガンマ (<code>Hue</code> / <code>Saturation</code> / <code>Value</code> / <code>Gamma</code>)</h4>
+<ul>
+<li><strong>目的</strong>: マテリアルインスペクター上でテクスチャのトーン補正を行います。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>色相</strong>: 全体の色合いをシフトします。</li>
+<li><strong>彩度</strong>: 鮮やかさを増減します（0 でモノクロ化）。</li>
+<li><strong>明度</strong>: 明るさを調整します。</li>
+<li><strong>ガンマ</strong>: コントラストカーブを調整します。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%A1%E3%82%A4%E3%83%B3%E3%82%AB%E3%83%A9%E3%83%BC%E3%81%AE%E5%BC%B7%E5%BA%A6-main-color-power">メインカラーの強度 (<code>Main Color Power</code>)</h4>
+<ul>
+<li><strong>目的</strong>: メインカラー（ベーステクスチャ色）を MatCap 反射に乗算する度合いを調整します。</li>
+<li><strong>効果</strong>: 値を大きくするほど地肌や衣服の色調が強く反映され、下地との調和を高めます。</li>
+</ul>
+<h4 id="%E8%BF%BD%E5%8A%A0%E3%83%A9%E3%82%A4%E3%83%88%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6">追加ライトについて</h4>
+<ul>
+<li>MatCap は環境反射として主光源の描画（ForwardBase）でのみ処理します。ポイントライトやスポットライトなどの追加光源（ForwardAdd パス）では描画されず、追加ライトごとに重ねて明るくなることはありません。</li>
+</ul>
+<hr>
+<h2 id="3-%E3%83%8E%E3%83%BC%E3%83%9E%E3%83%AB%E3%83%9E%E3%83%83%E3%83%97-3rd--4th%E8%BF%BD%E5%8A%A0%E5%87%B9%E5%87%B8%E3%83%BB%E3%82%A2%E3%83%8B%E3%83%A1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3">3. ノーマルマップ 3rd / 4th（追加凹凸・アニメーション）</h2>
+<p>lilToon の標準スロット（1st / 2nd）を保持したまま、その上にさらに <strong>第3・第4の法線レイヤー（3rd / 4th）</strong> を重ねて合成できます。</p>
+<blockquote>
+<p><strong>主な用途:</strong></p>
+<ul>
+<li>基本ディテールを維持したまま、水滴、刺繍、ダメージ表現などの追加テクスチャを重ねる</li>
+<li>法線パターンの UV スクロールや回転によるアニメーション効果を付与する</li>
+<li>微細な法線マップによる遠距離でのモアレ・エイリアシング（チラつき）を抑制する</li>
+</ul>
+</blockquote>
+<h3 id="%E7%8B%AC%E8%87%AA%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%83%BC">独自パラメーター</h3>
+<h4 id="uv-%E9%81%B8%E6%8A%9E-uv-mode-uv0--uv1--uv2--uv3">UV 選択 (<code>UV Mode: UV0 / UV1 / UV2 / UV3</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 適用する UV 座標チャンネルを選択します。</li>
+</ul>
+<h4 id="%E3%82%B9%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB--%E8%A7%92%E5%BA%A6--%E5%9B%9E%E8%BB%A2%E9%80%9F%E5%BA%A6-uv-scroll--angle--rotation-speed">スクロール / 角度 / 回転速度 (<code>UV Scroll</code> / <code>Angle</code> / <code>Rotation Speed</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 法線テクスチャの配置角度およびアニメーション動作を設定します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>スクロール (X / Y)</strong>: 表面に沿ってテクスチャを連続移動させます（流水、水滴、走査線など）。</li>
+<li><strong>角度</strong>: テクスチャの静的回転角度を設定します。</li>
+<li><strong>回転速度</strong>: テクスチャを継続的に旋回させます（渦巻きなど）。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E8%B7%9D%E9%9B%A2%E3%83%95%E3%82%A7%E3%83%BC%E3%83%89%E9%96%8B%E5%A7%8B--%E7%B5%82%E4%BA%86--%E5%BC%B7%E5%BA%A6-distance-fade-start--end--strength">距離フェード開始 / 終了 / 強度 (<code>Distance Fade Start</code> / <code>End</code> / <code>Strength</code>)</h4>
+<ul>
+<li><strong>目的</strong>: カメラからの距離に応じて法線強度を減衰させ、遠距離におけるピクセルのチラつき（エイリアシング・モアレ）を抑制します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>距離フェード開始 (m)</strong>: 強度の減衰を開始するカメラ距離を指定します。</li>
+<li><strong>距離フェード終了 (m)</strong>: 法線強度が完全に設定値まで低下するカメラ距離を指定します。</li>
+<li><strong>距離フェード強度</strong>: 終了距離において法線強度を減衰させる割合（1.0 で完全に平滑化）を指定します。</li>
+</ul>
+<blockquote>
+<p><strong>設定例:</strong> 微細な布地パターン等の場合、開始 <code>2.0m</code> / 終了 <code>6.0m</code> / 強度 <code>1.0</code> に設定することで、近接時のディテールを維持したまま遠景でのノイズを低減できます。</p>
+</blockquote>
+</li>
+</ul>
+<hr>
+<h2 id="4-%E3%83%AA%E3%83%A0%E3%83%A9%E3%82%A4%E3%83%88-2nd--3rd%E8%BF%BD%E5%8A%A0%E8%BC%AA%E9%83%AD%E5%85%89%E3%83%BB%E3%83%AA%E3%83%A0%E3%82%B7%E3%83%A3%E3%83%89%E3%82%A6">4. リムライト 2nd / 3rd（追加輪郭光・リムシャドウ）</h2>
+<p>キャラクターの輪郭部に光彩を付与するリムライトを、さらに <strong>2層（2nd / 3rd）</strong> 独立して追加できます。</p>
+<blockquote>
+<p><strong>主な用途:</strong></p>
+<ul>
+<li>天頂光と地表照り返しなど、上下で異なる光色のリムライトを多層化する</li>
+<li>加算発光だけでなく、輪郭部を暗く落とし込むシャドウ表現（リムシェード）を行う</li>
+<li>逆光時に自動で輪郭の輝度をブーストする</li>
+</ul>
+</blockquote>
+<h3 id="%E7%8B%AC%E8%87%AA%E3%83%91%E3%83%A9%E3%83%A1%E3%83%BC%E3%82%BF%E3%83%BC">独自パラメーター</h3>
+<h4 id="%E5%90%88%E6%88%90%E3%83%A2%E3%83%BC%E3%83%89-blend-mode">合成モード (<code>Blend Mode</code>)</h4>
+<ul>
+<li><strong>目的</strong>: リムライトの合成方式を切り替えます。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>通常 (<code>Normal</code>)</strong>: ベースカラーをリムカラーで置換補間します。</li>
+<li><strong>加算 (<code>Add</code>)</strong>: ベースカラーにリムカラーを加算します（強い光沢・発光）。</li>
+<li><strong>スクリーン (<code>Screen</code>)</strong>: 白飛びを抑制しながら明るく合成します。</li>
+<li><strong>乗算 (<code>Multiply</code>)</strong>: 輪郭部を暗く落とし込みます。イラスト調の輪郭影表現や、ベルベット等の起毛素材のエッジ減衰表現に適しています。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%AA%E3%83%A0%E3%83%A9%E3%82%A4%E3%83%88%E3%81%AE%E6%96%B9%E5%90%91-%E4%B8%8A---%E4%B8%8B-rim-light-direction--vertical-bias">リムライトの方向 (+上 / -下) (<code>Rim Light Direction / Vertical Bias</code>)</h4>
+<ul>
+<li><strong>目的</strong>: リムライトの発生領域をワールド空間の垂直軸（上下）に基づいて限定します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>正の値 (+)</strong>: 上向きの面に限定されます（天頂光・太陽光の表現）。</li>
+<li><strong>負の値 (-)</strong>: 下向きの面に限定されます（地表や水面からの照り返しの表現）。</li>
+<li><strong>0.0</strong>: 輪郭全体に均等に適用されます。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E9%80%86%E5%85%89%E3%83%96%E3%83%BC%E3%82%B9%E3%83%88-backlight-boost">逆光ブースト (<code>Backlight Boost</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 視線と主光源が対向する（逆光）状態において、リムライトの強度を自動的に増幅します。</li>
+<li><strong>効果</strong>: 逆光アングルにおいて輪郭光が強調され、順光アングルでは標準の強度に戻ります。</li>
+</ul>
+<h4 id="%E5%A2%83%E7%95%8C-border--%E3%81%BC%E3%81%8B%E3%81%97-blur">境界 (<code>Border</code>) / ぼかし (<code>Blur</code>)</h4>
+<ul>
+<li><strong>目的</strong>: リムライトの範囲および輪郭の境界硬度を調整します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>境界</strong>: リムライトが発生する領域の幅（しきい値）を設定します。</li>
+<li><strong>ぼかし</strong>: 階調の滑らかさを調整します。値を大きくするとグラデーション状になり、小さくするとセル画調のシャープな境界になります。</li>
+</ul>
+</li>
+</ul>
+<h4 id="%E3%83%A9%E3%82%A4%E3%83%88%E3%81%AE%E6%98%8E%E3%82%8B%E3%81%95%E3%82%92%E5%8F%8D%E6%98%A0-enable-lighting">ライトの明るさを反映 (<code>Enable Lighting</code>)</h4>
+<ul>
+<li><strong>目的</strong>: 環境光源の明るさをリムライト色に乗算するかを設定します。</li>
+<li><strong>効果</strong>:
+<ul>
+<li><strong>1.0 (初期値)</strong>: 暗所においてリムライトが自然に減衰します。</li>
+<li><strong>0.0</strong>: 暗所でも設定した輝度を維持します（乗算モード時は無効）。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2 id="5-%E3%83%8E%E3%82%A4%E3%82%BA%E3%83%9E%E3%82%B9%E3%82%AF%E5%85%B1%E9%80%9A%E8%B3%AA%E6%84%9F%E3%83%BB%E3%83%A9%E3%83%A1%E8%A1%A8%E7%8F%BE">5. ノイズマスク（共通）（質感・ラメ表現）</h2>
+<p>インスペクター下部の <strong>「ノイズマスク（共通）」</strong> スロットにグレースケールテクスチャを1枚指定することで、各追加レイヤーから参照可能になります。</p>
+<ul>
+<li><strong>スペキュラー 2nd / 3rd</strong>: ハイライトを粒状に分散させ、ラメや粗面の質感を付与</li>
+<li><strong>マットキャップ</strong>: 金属表面にヘアライン加工や微細な粗さを付与</li>
+<li><strong>リムライト 2nd / 3rd</strong>: 輪郭光の境界を粒子状に減衰</li>
+</ul>
+<blockquote>
+<p><strong>仕様:</strong><br>
+テクスチャスロット自体は共有ですが、タイリングおよびオフセットは各機能側で個別に設定可能です。機能ごとに異なる密度で同一ノイズを利用できます。</p>
+</blockquote>
+<hr>
+<h2 id="6-%E8%A3%9C%E5%8A%A9%E6%A9%9F%E8%83%BD">6. 補助機能</h2>
+<h3 id="%E8%87%AA%E5%8B%95%E3%83%9E%E3%82%B9%E3%82%AF%E3%83%91%E3%83%83%E3%82%AD%E3%83%B3%E3%82%B0">自動マスクパッキング</h3>
+<ul>
+<li><strong>概要</strong>:
+シェーダーが宣言するテクスチャ数が GPU / API 上限（64枚）を超過するのを回避するため、各機能に割り当てられた単一チャンネルマスクをバックグラウンドで自動的に RGBA テクスチャへ統合（パッキング）して適用します。</li>
+<li><strong>操作</strong>:
+ユーザーが特別な操作を行う必要はありません。各マスクスロットにテクスチャを割り当てることで自動的にパッキングされます。<br>
+外部での画像編集などが即座に反映されない場合は、「マスクパッキング状態」セクション内の <strong>「パック済みマスクを再ベイク」</strong> ボタンを実行してください。</li>
+</ul>
+<h3 id="%E8%A8%AD%E5%AE%9A%E3%81%AE%E3%82%B3%E3%83%94%E3%83%BC%EF%BC%86%E3%83%9A%E3%83%BC%E3%82%B9%E3%83%88">設定のコピー＆ペースト</h3>
+<p>各機能セクションヘッダー右端の <strong>「…（メニューアイコン）」</strong> から、パラメーターの複製が行えます。</p>
+<ul>
+<li><strong>コピー (<code>Copy</code>)</strong>: 数値およびカラー設定をクリップボードに保持します（テクスチャ参照は含みません）。</li>
+<li><strong>コピー (テクスチャを含む) (<code>Copy (with textures)</code>)</strong>: テクスチャ参照を含めて全設定をコピーします。</li>
+<li><strong>貼り付け (<code>Paste</code>)</strong>: コピーした設定を同一または別のセクションへ適用します。</li>
+</ul>
+
+</body>
+</html>

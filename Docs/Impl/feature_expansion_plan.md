@@ -1,4 +1,4 @@
-# SpecularExV2 機能拡張 実装計画 (Feature Expansion Plan)
+# DenPlus 機能拡張 実装計画 (Feature Expansion Plan)
 
 [overview.md](overview.md) で定義した既存4機能（スペキュラー 2nd/3rd・MatCap・ノーマル 3rd・リム 2nd）に対し、表現の幅を広げる追加設定を実装するための計画書です。
 

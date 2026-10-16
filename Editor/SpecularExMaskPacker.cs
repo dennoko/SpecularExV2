@@ -18,7 +18,7 @@ namespace Dennokoworks.SpecularExV2
     //           B = _CustomNormal4thMaskTex  A = _CustomNoiseMaskTex (shared noise)
     public static class SpecularExMaskPacker
     {
-        public const string ShaderNameRoot = "dennokoworks/SpecularExV2";
+        public const string ShaderNameRoot = "dennokoworks/DenPlus";
         public const string PackedProp1 = "_CustomMaskPacked";
         public const string PackedProp2 = "_CustomMaskPacked2";
         public const string PackedProp = PackedProp1;
@@ -109,7 +109,7 @@ namespace Dennokoworks.SpecularExV2
         //   2: width and height are chosen separately (was: a square of the larger side).
         public const int Version = 2;
 
-        const string PackerShader = "Hidden/dennokoworks/SpecularExV2/MaskPacker";
+        const string PackerShader = "Hidden/dennokoworks/DenPlus/MaskPacker";
         const int MaxSize = 2048;
         const int MinSize = 4;
 
@@ -174,7 +174,7 @@ namespace Dennokoworks.SpecularExV2
             var shader = Shader.Find(PackerShader);
             if (shader == null)
             {
-                Debug.LogError($"[SpecularExV2] Mask packer shader '{PackerShader}' not found; cannot pack masks.");
+                Debug.LogError($"[DenPlus] Mask packer shader '{PackerShader}' not found; cannot pack masks.");
                 return null;
             }
 

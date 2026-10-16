@@ -326,7 +326,7 @@ namespace Dennokoworks.SpecularExV2
             EditorGUILayout.BeginHorizontal();
 
             GUI.contentColor = new Color(0.68f, 0.68f, 0.68f);
-            GUILayout.Label($"SpecularExV2 v{result.LocalVersion}", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+            GUILayout.Label($"DenPlus v{result.LocalVersion}", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
             GUI.contentColor = prevColor;
 
             switch (result.State)
@@ -657,7 +657,7 @@ namespace Dennokoworks.SpecularExV2
         static void PasteSection(MaterialProperty[] props)
         {
             var targets = props.Where(p => p != null).SelectMany(p => p.targets).Distinct().ToArray();
-            if (targets.Length > 0) Undo.RecordObjects(targets, "Paste SpecularExV2 Section");
+            if (targets.Length > 0) Undo.RecordObjects(targets, "Paste DenPlus Section");
 
             foreach (var p in props)
             {

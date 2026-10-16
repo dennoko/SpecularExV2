@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// SpecularExV2 custom.hlsl - lilToon 2.x extension
+// DenPlus custom.hlsl - lilToon 2.x extension
 // Features: Specular 2nd / Specular 3rd / World-Oriented Dual-Hemisphere MatCap / Normal Map 3rd / Rim Light 2nd
 //
 // Hook order in lilToon's forward pass (lil_pass_forward_normal.hlsl):

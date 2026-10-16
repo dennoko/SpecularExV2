@@ -3,7 +3,7 @@
 //   R = Specular 2nd   G = Rim Light 2nd   B = Normal Map 3rd   A = World MatCap
 // Sampling honours each source's import settings (sRGB/linear) exactly as the runtime shader would, and
 // the result is written to a linear render target, so values are faithful.
-Shader "Hidden/dennokoworks/SpecularExV2/MaskPacker"
+Shader "Hidden/dennokoworks/DenPlus/MaskPacker"
 {
     Properties
     {

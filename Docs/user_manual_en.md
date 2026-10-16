@@ -1,6 +1,6 @@
-# SpecularExV2 Feature & Parameter Reference Guide
+# DenPlus Feature & Parameter Reference Guide
 
-This document describes the custom features and extended parameters introduced in **SpecularExV2**.  
+This document describes the custom features and extended parameters introduced in **DenPlus**.  
 Standard features shared with lilToon (Main Color, basic shadows, standard Reflection 1st, etc.) are omitted. **Only the custom features and unique parameters specific to this shader** are covered.
 
 This guide provides concise, practical explanations of the purpose of each parameter and how modifying its value affects material appearance.

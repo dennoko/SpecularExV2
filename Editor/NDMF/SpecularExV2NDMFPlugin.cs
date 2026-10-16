@@ -26,7 +26,7 @@ namespace Dennokoworks.SpecularExV2
     internal class SpecularExV2NDMFPlugin : Plugin<SpecularExV2NDMFPlugin>
     {
         public override string QualifiedName => "dennokoworks.specularex.v2";
-        public override string DisplayName => "SpecularExV2";
+        public override string DisplayName => "DenPlus";
 
         // Feature texture -> the effective enable flag that gates its only sample.
         static readonly (string texture, string enabled)[] FeatureTextures =
@@ -43,7 +43,7 @@ namespace Dennokoworks.SpecularExV2
                 .AfterPlugin("nadena.dev.modular-avatar")
                 .AfterPlugin("net.rs64.tex-trans-tool")
                 .WithRequiredExtension(typeof(AnimatorServicesContext), seq =>
-                    seq.Run("Strip SpecularExV2 source masks", StripSourceMasks));
+                    seq.Run("Strip DenPlus source masks", StripSourceMasks));
         }
 
         static void StripSourceMasks(BuildContext context)

@@ -45,18 +45,18 @@ namespace Dennokoworks.SpecularExV2
 
         // セッションキー。State（比較結果）は保存しない — ローカル版が後から正しく解決され得るため、
         // 表示のために「保存した最新版 vs 現在のローカル版」で更新有無を再計算する。
-        private const string VerCheckDoneKey = "SpecularExV2_VerCheck_Done";
-        private const string VerCheckErrorKey = "SpecularExV2_VerCheck_Error";
-        private const string VerCheckLatestKey = "SpecularExV2_VerCheck_Latest";
-        private const string VerCheckUrlKey = "SpecularExV2_VerCheck_Url";
-        private const string VerCheckMessageKey = "SpecularExV2_VerCheck_Message";
+        private const string VerCheckDoneKey = "DenPlus_VerCheck_Done";
+        private const string VerCheckErrorKey = "DenPlus_VerCheck_Error";
+        private const string VerCheckLatestKey = "DenPlus_VerCheck_Latest";
+        private const string VerCheckUrlKey = "DenPlus_VerCheck_Url";
+        private const string VerCheckMessageKey = "DenPlus_VerCheck_Message";
 
         // 以下はエディタ再起動をまたいで保持する必要があるため EditorPrefs に置く。
         // SessionState だと再起動のたびにリセットされ、レート制限中でも撃ち続けてしまう。
-        private const string VerCheckLastAttemptKey = "SpecularExV2_VerCheck_LastAttemptUtc";
-        private const string VerCheckCachedLatestKey = "SpecularExV2_VerCheck_CachedLatest";
-        private const string VerCheckCachedUrlKey = "SpecularExV2_VerCheck_CachedUrl";
-        private const string VerCheckCachedMessageKey = "SpecularExV2_VerCheck_CachedMessage";
+        private const string VerCheckLastAttemptKey = "DenPlus_VerCheck_LastAttemptUtc";
+        private const string VerCheckCachedLatestKey = "DenPlus_VerCheck_CachedLatest";
+        private const string VerCheckCachedUrlKey = "DenPlus_VerCheck_CachedUrl";
+        private const string VerCheckCachedMessageKey = "DenPlus_VerCheck_CachedMessage";
 
         // 前回リクエストからこの時間が経つまで自動チェックを行わない。ドメインリロード
         // （スクリプト保存・Play mode 出入りごとに走る）で無制限に再試行すると、GitHub 側の
@@ -253,7 +253,7 @@ namespace Dennokoworks.SpecularExV2
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[SpecularExV2] version.json の読み込みに失敗しました ({path}): {e.Message}");
+                Debug.LogWarning($"[DenPlus] version.json の読み込みに失敗しました ({path}): {e.Message}");
             }
             return null;
         }

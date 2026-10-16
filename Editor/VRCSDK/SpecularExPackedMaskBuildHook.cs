@@ -38,7 +38,7 @@ namespace Dennokoworks.SpecularExV2
                         if (key.value is Material m) materials.Add(m);
 
             if (SpecularExPackedMaskStore.EnsureAll(materials, persist: false)) return true;
-            Debug.LogError("[SpecularExV2] Upload stopped: some SpecularExV2 masks could not be packed (see the errors above).");
+            Debug.LogError("[DenPlus] Upload stopped: some DenPlus masks could not be packed (see the errors above).");
             return false;
         }
 

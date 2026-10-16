@@ -1,4 +1,4 @@
-# SpecularExV2 シェーダービルド時間削減計画 (A & B)
+# DenPlus シェーダービルド時間削減計画 (A & B)
 
 作成日: 2026-09-27  
 対象ファイル: [custom_insert.hlsl](../../Shaders/custom_insert.hlsl), [custom.hlsl](../../Shaders/custom.hlsl)

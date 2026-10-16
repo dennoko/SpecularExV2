@@ -1,4 +1,4 @@
-# SpecularExV2 リリースノート（文案）
+# DenPlus リリースノート（文案）
 
 [feature_expansion_plan.md](feature_expansion_plan.md) の実装分に対するリリースノートの下書きです。
 

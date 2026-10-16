@@ -84,7 +84,7 @@ namespace Dennokoworks.SpecularExV2
             catch (Exception e)
             {
                 // URL 組み立て自体の失敗はブランチを変えても直らないため即エラー
-                Debug.LogWarning($"[SpecularExV2] version check: request build failed: {e.Message}");
+                Debug.LogWarning($"[DenPlus] version check: request build failed: {e.Message}");
                 onResult(Error(localVersion));
                 return;
             }
@@ -100,7 +100,7 @@ namespace Dennokoworks.SpecularExV2
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"[SpecularExV2] version check: callback failed: {e.Message}");
+                    Debug.LogWarning($"[DenPlus] version check: callback failed: {e.Message}");
                     result = Error(localVersion);
                 }
                 finally
@@ -140,14 +140,14 @@ namespace Dennokoworks.SpecularExV2
                 // 403 / 429 は本文に理由（レート制限か否か）が入るので一緒に出す
                 var body = req.downloadHandler != null ? req.downloadHandler.text : null;
                 if (!string.IsNullOrEmpty(body) && body.Length > 300) body = body.Substring(0, 300) + "...";
-                Debug.LogWarning($"[SpecularExV2] version check 取得失敗: url={url} httpCode={req.responseCode} error={req.error} body={body}");
+                Debug.LogWarning($"[DenPlus] version check 取得失敗: url={url} httpCode={req.responseCode} error={req.error} body={body}");
                 return Error(localVersion);
             }
 
             var json = req.downloadHandler != null ? req.downloadHandler.text : null;
             if (string.IsNullOrEmpty(json))
             {
-                Debug.LogWarning($"[SpecularExV2] version check 取得失敗: レスポンスが空。url={url} httpCode={req.responseCode}");
+                Debug.LogWarning($"[DenPlus] version check 取得失敗: レスポンスが空。url={url} httpCode={req.responseCode}");
                 return Error(localVersion);
             }
 
@@ -155,13 +155,13 @@ namespace Dennokoworks.SpecularExV2
             try { info = JsonUtility.FromJson<VersionInfo>(json); }
             catch (Exception e)
             {
-                Debug.LogWarning($"[SpecularExV2] version check 取得失敗: JSON パース失敗: {e.Message} url={url}");
+                Debug.LogWarning($"[DenPlus] version check 取得失敗: JSON パース失敗: {e.Message} url={url}");
                 return Error(localVersion);
             }
 
             if (info == null || string.IsNullOrEmpty(info.version))
             {
-                Debug.LogWarning($"[SpecularExV2] version check 取得失敗: version フィールドが空。url={url}");
+                Debug.LogWarning($"[DenPlus] version check 取得失敗: version フィールドが空。url={url}");
                 return Error(localVersion);
             }
 

@@ -33,7 +33,7 @@ namespace Dennokoworks.SpecularExV2
     //     and the final import run on the main thread. Builds and manual repairs bake synchronously.
     public static class SpecularExPackedMaskStore
     {
-        public const string Folder = "Assets/dennokoworks/SpecularExV2_Generated/PackedMasks";
+        public const string Folder = "Assets/dennokoworks/DenPlus_Generated/PackedMasks";
 
         // GUID of Shaders/lts.lilcontainer; its folder holds every shader SpecularExV2 materials can use.
         const string ShaderAssetGuid = "987a9d362921499fb358b61879bcab6a";
@@ -77,11 +77,11 @@ namespace Dennokoworks.SpecularExV2
 
         public static EnsureStats LastStats;
 
-        static readonly ProfilerMarker EnsureAllMarker = new ProfilerMarker("SpecularExV2.EnsureAll");
-        static readonly ProfilerMarker PlanMarker = new ProfilerMarker("SpecularExV2.EnsureAll.Plan");
-        static readonly ProfilerMarker ImportSettingsMarker = new ProfilerMarker("SpecularExV2.EnsureAll.ImportSettings");
-        static readonly ProfilerMarker AssignMarker = new ProfilerMarker("SpecularExV2.EnsureAll.Assign");
-        static readonly ProfilerMarker GetStateMarker = new ProfilerMarker("SpecularExV2.GetState");
+        static readonly ProfilerMarker EnsureAllMarker = new ProfilerMarker("DenPlus.EnsureAll");
+        static readonly ProfilerMarker PlanMarker = new ProfilerMarker("DenPlus.EnsureAll.Plan");
+        static readonly ProfilerMarker ImportSettingsMarker = new ProfilerMarker("DenPlus.EnsureAll.ImportSettings");
+        static readonly ProfilerMarker AssignMarker = new ProfilerMarker("DenPlus.EnsureAll.Assign");
+        static readonly ProfilerMarker GetStateMarker = new ProfilerMarker("DenPlus.GetState");
 
         public static bool EnsureAll(IEnumerable<Material> materials, bool persist, bool rebake = false, bool useCache = false,
                                      bool background = false)
@@ -211,7 +211,7 @@ namespace Dennokoworks.SpecularExV2
                     {
                         ok = false;
                         uncacheable.Add(m);
-                        Debug.LogError($"[SpecularExV2] Packed mask '{plan.path}' for material '{m.name}' could not be loaded.", m);
+                        Debug.LogError($"[DenPlus] Packed mask '{plan.path}' for material '{m.name}' could not be loaded.", m);
                         continue;
                     }
                 }
@@ -298,7 +298,7 @@ namespace Dennokoworks.SpecularExV2
         public static int PendingBakes => _bakes.Count;
 
         static string _tempFolder;
-        static string TempFolder => _tempFolder ??= Path.GetFullPath("Temp/SpecularExV2Bakes");
+        static string TempFolder => _tempFolder ??= Path.GetFullPath("Temp/DenPlusBakes");
 
         // Starts (or joins) the background bake of `path` from `m`'s pack. False if it cannot run in
         // the background; the caller bakes synchronously then.
@@ -321,7 +321,7 @@ namespace Dennokoworks.SpecularExV2
             catch (System.Exception e)
             {
                 RenderTexture.ReleaseTemporary(rt);
-                Debug.LogWarning($"[SpecularExV2] Background bake unavailable, baking synchronously: {e.Message}");
+                Debug.LogWarning($"[DenPlus] Background bake unavailable, baking synchronously: {e.Message}");
                 return false;
             }
             bake.waiting.Add(m);
@@ -419,7 +419,7 @@ namespace Dennokoworks.SpecularExV2
                     catch (System.Exception e)
                     {
                         var inner = e is System.AggregateException a ? a.GetBaseException() : e;
-                        Debug.LogError($"[SpecularExV2] Could not bake the packed mask '{bake.path}' in the background: {inner.Message}");
+                        Debug.LogError($"[DenPlus] Could not bake the packed mask '{bake.path}' in the background: {inner.Message}");
                         continue;
                     }
                     foreach (var m in bake.waiting)
@@ -458,7 +458,7 @@ namespace Dennokoworks.SpecularExV2
         // Material tag set on build clones whose source mask slots were cleared (NDMF plugin). A tag is
         // serialized with the material, so it survives NDMF's asset saving, a manual bake and domain
         // reloads, and needs no shader property.
-        public const string SourcesStrippedTag = "SpecularExV2MaskSourcesStripped";
+        public const string SourcesStrippedTag = "DenPlusMaskSourcesStripped";
 
         public static bool AreSourcesStripped(Material m)
             => m != null && m.GetTag(SourcesStrippedTag, false, "") == "1";
@@ -650,7 +650,7 @@ namespace Dennokoworks.SpecularExV2
         }
 
         static void LogFailure(Material m)
-            => Debug.LogError($"[SpecularExV2] Could not pack the masks of material '{m.name}'. Its packed mask was left unchanged.", m);
+            => Debug.LogError($"[DenPlus] Could not pack the masks of material '{m.name}'. Its packed mask was left unchanged.", m);
 
         // ------------------------------------------------------------------------------------------
         //  Import settings of the generated files
@@ -873,7 +873,7 @@ namespace Dennokoworks.SpecularExV2
         }
 
         // The only project-wide check: the watcher covers the scenes only. Trusts no cached check.
-        [MenuItem("Window/SpecularExV2/Packed Masks/Update All Materials")]
+        [MenuItem("Window/DenPlus/Packed Masks/Update All Materials")]
         static void UpdateAllMaterials()
         {
             var materials = new List<Material>();
@@ -882,7 +882,7 @@ namespace Dennokoworks.SpecularExV2
             {
                 for (int i = 0; i < paths.Count; i++)
                 {
-                    if (EditorUtility.DisplayCancelableProgressBar("SpecularExV2", paths[i], (float)i / paths.Count))
+                    if (EditorUtility.DisplayCancelableProgressBar("DenPlus", paths[i], (float)i / paths.Count))
                         return;
                     if (UsesSpecularExShader(paths[i])) materials.AddRange(LoadMaterialsAtPath(paths[i]));
                 }
@@ -893,13 +893,13 @@ namespace Dennokoworks.SpecularExV2
             }
 
             bool ok = EnsureAll(materials, persist: true);
-            Debug.Log($"[SpecularExV2] Checked the packed masks of {materials.Count} material(s)" +
+            Debug.Log($"[DenPlus] Checked the packed masks of {materials.Count} material(s)" +
                       (ok ? "." : "; some failed, see the errors above."));
         }
 
         // Generated files are never deleted automatically: an older file may still be referenced by
         // an Undo step, an unsaved scene material or another project copy.
-        [MenuItem("Window/SpecularExV2/Packed Masks/Delete Unused Generated Masks")]
+        [MenuItem("Window/DenPlus/Packed Masks/Delete Unused Generated Masks")]
         static void DeleteUnused()
         {
             if (!AssetDatabase.IsValidFolder(Folder)) return;
@@ -918,10 +918,10 @@ namespace Dennokoworks.SpecularExV2
 
             if (unused.Count == 0)
             {
-                EditorUtility.DisplayDialog("SpecularExV2", "No unused packed masks were found.", "OK");
+                EditorUtility.DisplayDialog("DenPlus", "No unused packed masks were found.", "OK");
                 return;
             }
-            if (!EditorUtility.DisplayDialog("SpecularExV2",
+            if (!EditorUtility.DisplayDialog("DenPlus",
                     $"Delete {unused.Count} packed mask file(s) not referenced by any saved material?\n" +
                     "Unsaved materials that still use them will regenerate them when edited or built.",
                     "Delete", "Cancel"))
@@ -929,7 +929,7 @@ namespace Dennokoworks.SpecularExV2
 
             var failed = new List<string>();
             AssetDatabase.DeleteAssets(unused.ToArray(), failed);
-            foreach (var f in failed) Debug.LogWarning($"[SpecularExV2] Could not delete '{f}'.");
+            foreach (var f in failed) Debug.LogWarning($"[DenPlus] Could not delete '{f}'.");
         }
     }
 }

@@ -1,6 +1,6 @@
-# SpecularExV2 要件仕様書・設計概要 (Overview & Requirements)
+# DenPlus 要件仕様書・設計概要 (Overview & Requirements)
 
-本書は、lilToon 2.x 向け拡張シェーダー **SpecularExV2**（旧バージョン: v1 `dennoko_specularex`）の機能要件、技術仕様、およびアーキテクチャ設計を定義したドキュメントです。
+本書は、lilToon 2.x 向け拡張シェーダー **DenPlus**（旧名: SpecularExV2 / v1 `dennoko_specularex`）の機能要件、技術仕様、およびアーキテクチャ設計を定義したドキュメントです。
 
 ---
 
@@ -14,7 +14,7 @@ v1（[v1 仕様・リファレンス](ref/v1.md)）では、2層スペキュラ�
 - **根本原因**: lilToon のビルド後処理（全機能有効化での再コンパイル）において、シェーダーで宣言される **テクスチャパラメータ数が GPU 上限（64枚）を超過（65枚に到達）** してシェーダーのコンパイル/ロードに失敗していた。
 - **サンプラー制限との違い**: Direct3D 11 / ps_4_0 の「16サンプラー制限」は共有サンプラー（`sampler_linear_repeat`）で回避できていたが、それとは独立した「テクスチャパラメータ数 64」のハードウェア/API上限に抵触していた。
 
-### 1.2 SpecularExV2 の目的
+### 1.2 DenPlus の目的
 `Assets/dennokoworks/DennokoEx` で確立された **単一チャンネルマスクの自動 RGBA パッキング機構** を全面的に導入し、64テクスチャパラメータ上限を確実に回避しながら、以下の4つの拡張機能を安定して提供します。
 
 1. **追加スペキュラー (Specular 2nd)**: lilToon リアルモード準拠の反射ロジック＋ForwardAdd（追加ライト）完全対応
@@ -235,18 +235,18 @@ Rim Light 2nd と同等の完全な第3のリムライト層です。独立し�
    - マテリアルインスペクター上には、ユーザー向けに `_CustomRefl2ndMaskTex` 等の個別スロットをそのまま表示。
 2. **バックグラウンド自動ベイク**:
    - `SpecularExMaskPacker`: GPU Blit（`MaskPacker.shader`）を用いて各テクスチャの R チャンネルを RGBA に結合し、PNG バイト列を生成。幅・高さは入力の最大値をそれぞれ 2 の累乗に切り上げて決める（最大 2048）。
-   - `SpecularExPackedMaskStore`: 入力テクスチャの GUID・更新日時・バージョンからフィンガープリントハッシュを計算し、`Assets/dennokoworks/SpecularExV2_Generated/PackedMasks/<hash>.png` として永続アセットを保存。
+   - `SpecularExPackedMaskStore`: 入力テクスチャの GUID・更新日時・バージョンからフィンガープリントハッシュを計算し、`Assets/dennokoworks/DenPlus_Generated/PackedMasks/<hash>.png` として永続アセットを保存。
    - 自動インポート設定（Linear, sRGB=false, 圧縮・Mipmap 設定）を適用し、マテリアルの `_CustomMaskPacked` に自動代入。
 3. **アバタービルド時フック (`VRCSDK / BuildHook`)**:
    - VRChat の Build & Publish 前処理（`IVRCSDKPreprocessAvatarCallback`, `callbackOrder = 0`）にて、アバター内の全マテリアルとアニメーションクリップを検査し、最新のパックドテクスチャが確実に割り当てられていることを保証。
 4. **NDMF 導入時のビルド最適化 (`NDMF / SpecularExV2NDMFPlugin`)**:
    - NDMF（1.7.10 以降）が導入されている場合のみコンパイルされる（`SPECULAREXV2_HAS_NDMF`）。未導入の環境は 3. のみで、従来どおりの動作。
-   - Optimizing フェーズ（Modular Avatar / TexTransTool の後）で、SpecularExV2 マテリアルを複製してパックし、複製側だけで以下を外す。プロジェクトの `.mat` は変更しない。
+   - Optimizing フェーズ（Modular Avatar / TexTransTool の後）で、DenPlus マテリアルを複製してパックし、複製側だけで以下を外す。プロジェクトの `.mat` は変更しない。
      - 個別マスクスロット（`_Custom*MaskTex` 8枚）の参照。Tiling / Offset は保持され、パックマスクのサンプリングに引き続き使われる。
      - どの機能からも読まれないパックマスク（例: 3rd 系・4th・ノイズが全て無効なら `_CustomMaskPacked2`）。
      - 無効な機能のノーマルマップ 3rd / 4th・マットキャップテクスチャ。
    - 有効フラグ（`_Custom*Enabled`）やノイズ強度がアニメーションされている機能は「有効になり得る」として残す。アニメーションで差し替えられるマテリアルも対象（`AnimatorServicesContext` で参照を差し替え）。
-   - 複製にはマテリアルタグ `SpecularExV2MaskSourcesStripped` を付け、後段の 3. のフックが元スロット不在を理由にパックマスクを外さないようにする。
+   - 複製にはマテリアルタグ `DenPlusMaskSourcesStripped` を付け、後段の 3. のフックが元スロット不在を理由にパックマスクを外さないようにする。
 
 ---
 
